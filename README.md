@@ -1,3 +1,10 @@
+## Bootcamp IBM Bob: IA de Nível Empresarial para Desenvolvedores e Tech Leaders.
+
+<img width="120" height="120" alt="ibm-bob-imagem" src="https://github.com/user-attachments/assets/b4ba9b03-24f4-44c7-a459-bfb30eec1eac" />
+
+---
+
+
 # Intelligent DevSecOps Sentinel
 
 [![CI](https://github.com/Santosdevbjj/geo-explorer-com-ibm-bob/actions/workflows/ci.yml/badge.svg)](https://github.com/Santosdevbjj/geo-explorer-com-ibm-bob/actions/workflows/ci.yml)

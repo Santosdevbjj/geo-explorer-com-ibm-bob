@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "sentinel": {
+      "command": "python",
+      "args": [
+        "mcp/server.py"
+      ],
+      "env": {
+        "SENTINEL_ENV": "development"
+      },
+      "description": "Sentinel MCP Server — ferramentas de análise defensiva somente leitura",
+      "tools": [
+        "get_model_info",
+        "analyze_event",
+        "get_metrics_summary",
+        "get_drift_summary"
+      ],
+      "note": "Instale as dependências com `pip install -e \".[mcp]\"`. Não aceita caminhos, comandos ou operações de mutação."
+    }
+  }
+}

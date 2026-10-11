@@ -1,0 +1,93 @@
+[project]
+name = "sentinel"
+version = "0.1.0"
+description = "Intelligent DevSecOps Sentinel — pipeline analítico de segurança com detecção baseada em regras e ML"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Sergio Santos", email = "santossergiorealbjj@outlook.com" }]
+# Python 3.14 confirmado localmente (cpython-314 em __pycache__).
+# Mantém >=3.12 para compatibilidade de CI no GitHub Actions até
+# setup-python@v5 publicar imagem oficial 3.14.
+requires-python = ">=3.12"
+keywords = ["security", "devsecops", "anomaly-detection", "fastapi", "mlops"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security",
+]
+
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.2.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "scikit-learn>=1.4.0",
+    "joblib>=1.4.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-cov>=5.0.0",
+    "httpx>=0.27.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "bandit[toml]>=1.7.8",
+    "pandas-stubs>=2.2.0",
+    "pip-audit>=2.7.0",
+] 
+
+mcp = ["mcp>=1.9.0"]
+
+[project.urls]
+Repository = "https://github.com/Santosdevbjj/geo-explorer-com-ibm-bob"
+Issues     = "https://github.com/Santosdevbjj/geo-explorer-com-ibm-bob/issues"
+
+# ── Ruff ────────────────────────────────────────────────────────────────────
+[tool.ruff]
+# py312 é a versão mínima garantida; py314 não tem target ainda no Ruff 0.4.x.
+# Atualizar para py314 quando Ruff publicar suporte oficial.
+target-version = "py312"
+line-length = 88
+src = ["src", "api", "scripts", "tests", "mcp"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "TID"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["sentinel"]
+
+# ── mypy ────────────────────────────────────────────────────────────────────
+[tool.mypy]
+# mypy usa a versão instalada para inferência de tipos.
+# Mantido em 3.12 para CI; localmente mypy detecta 3.14 se disponível.
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+exclude = ["notebooks/", "docs/"]
+
+# ── pytest ──────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-v --cov=src/sentinel --cov-report=term-missing --cov-report=html"
+
+# ── bandit ──────────────────────────────────────────────────────────────────
+[tool.bandit]
+targets    = ["src", "api", "scripts", "mcp"]
+skips      = ["B101"]   # assert em testes é intencional
+severity   = "medium"
+
+# ── build ────────────────────────────────────────────────────────────────────
+[build-system]
+requires      = ["setuptools>=69.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

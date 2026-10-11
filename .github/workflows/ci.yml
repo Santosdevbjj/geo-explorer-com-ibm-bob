@@ -1,0 +1,214 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Python 3.14 é o alvo local (confirmado por __pycache__/cpython-314).
+# CI usa 3.12 (imagem Actions estável). Job py313-smoke monitora compatibilidade
+# intermediária. Migrar CI para 3.14 quando setup-python@v5 publicar imagem oficial.
+# Decisão: ADR-002 (docs/decisions/ADR-001-architecture.md).
+
+env:
+  PYTHONUNBUFFERED: "1"
+  SENTINEL_ENV: "development"
+  LOG_LEVEL: "WARNING"
+  API_SECRET_KEY: "ci-test-secret"
+  ALERT_SCORE_THRESHOLD: "0.3"
+
+jobs:
+  # ── Lint e tipagem ─────────────────────────────────────────────────────
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Ruff — lint
+        run: ruff check .
+
+      - name: Ruff — format check
+        run: ruff format --check .
+
+      - name: mypy — type check
+        run: mypy src/sentinel/ api/
+
+  # ── Smoke-test Python 3.13 (monitor de compatibilidade) ───────────────
+  py313-smoke:
+    name: Python 3.13 Smoke Test
+    runs-on: ubuntu-latest
+    continue-on-error: true   # não bloqueia o CI principal; é monitor apenas
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Import smoke test
+        run: |
+          python -c "import sentinel; print('sentinel import OK em Python 3.13')"
+          python -c "from sentinel.schemas import LogEvent; print('schemas OK')"
+          python -c "from sentinel.data.validation import validate_batch; print('validation OK')"
+
+  # ── Segurança estática ─────────────────────────────────────────────────
+  security:
+    name: Security Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # necessário para Gitleaks verificar histórico completo
+
+      - name: Gitleaks — secrets scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]" pip-audit
+
+      - name: Bandit — SAST
+        run: bandit -r src/ api/ scripts/ -c pyproject.toml
+
+      - name: pip-audit — dependency vulnerabilities
+        run: pip-audit --require-hashes=false -r requirements.txt || pip-audit
+
+  # ── Testes ────────────────────────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run tests with coverage
+        run: pytest --cov=src/sentinel --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 7
+
+  # ── Geração de dados sintéticos ───────────────────────────────────────
+  data-pipeline:
+    name: Synthetic Data Pipeline
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Generate synthetic data
+        run: python scripts/generate_synthetic_data.py --n-events 500 --seed 42
+
+      - name: Validate synthetic data
+        run: python scripts/validate_data.py --input data/synthetic/events.jsonl
+
+  # ── Contrato do SDK MCP oficial ───────────────────────────────────────
+  mcp-sdk-smoke:
+    name: MCP SDK Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install MCP integration
+        run: pip install -e ".[dev,mcp]"
+      - name: Verify official SDK and local server syntax
+        run: |
+          python -c "from mcp.server.fastmcp import FastMCP; print('official MCP SDK import OK')"
+          python -c "import ast; ast.parse(open('mcp/server.py').read()); print('server syntax OK')"
+
+  # ── Validação de build Vercel ─────────────────────────────────────────
+  vercel-build:
+    name: Vercel Build Validation
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Validate vercel.json exists
+        run: test -f vercel.json && echo "vercel.json encontrado"
+
+      - name: Validate requirements.txt exists
+        run: test -f requirements.txt && echo "requirements.txt encontrado"
+
+      - name: Check API entry point
+        run: python -c "import ast; ast.parse(open('api/index.py').read()); print('api/index.py — sintaxe OK')"
+
+  # ── Build do Frontend Next.js ─────────────────────────────────────────
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline || npm install
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000

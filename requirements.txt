@@ -1,0 +1,13 @@
+# Dependências de produção do Sentinel (para Vercel e outros deploys sem pip install -e)
+# Gerado a partir de pyproject.toml — não inclui ferramentas de desenvolvimento.
+# Atualize este arquivo sempre que modificar [project.dependencies] no pyproject.toml.
+
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.7.0
+pydantic-settings>=2.2.0
+pandas>=2.2.0
+numpy>=1.26.0
+scikit-learn>=1.4.0
+joblib>=1.4.0
+python-dotenv>=1.0.0

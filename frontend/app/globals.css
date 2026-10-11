@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Reset tipográfico ─────────────────────────────────────────────────── */
+:root {
+  --font-sans: -apple-system, 'Segoe UI', system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1f2328;
+  background: #f7f8fa;
+}
+
+/* ── Utilitários ──────────────────────────────────────────────────────── */
+.sentinel-card {
+  @apply bg-white border border-sentinel-border rounded-lg p-4;
+}
+
+.sentinel-badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+}

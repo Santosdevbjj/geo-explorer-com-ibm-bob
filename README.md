@@ -348,7 +348,7 @@ geo-explorer-com-ibm-bob/
 3. Alertas ficam em memória; reiniciar o processo os apaga.
 4. No deploy serverless, o modelo não é persistido e a API opera em modo `rules-only`.
 5. `docs/security-review.md` e `docs/release-readiness.md` são **checklists a preencher com evidências**, não certificações.
-6. O repositório não tem `frontend/package-lock.json`; gere e revise um antes de qualquer release.
+
 
 ## Próximos passos
 

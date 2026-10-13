@@ -4,11 +4,11 @@ Interface web do Sentinel construída com **Next.js 14**, **TypeScript** e **Tai
 
 ## Páginas
 
-| Rota | Componente | Descrição |
-|---|---|---|
-| `/` | `app/page.tsx` | Lista de alertas da sessão atual |
+| Rota           | Componente                 | Descrição                                    |
+| -------------- | -------------------------- | -------------------------------------------- |
+| `/`            | `app/page.tsx`             | Lista de alertas da sessão atual             |
 | `/alerts/[id]` | `app/alerts/[id]/page.tsx` | Detalhe do alerta: sinais, score, limitações |
-| `/metrics` | `app/metrics/page.tsx` | Relatório de avaliação do modelo |
+| `/metrics`     | `app/metrics/page.tsx`     | Relatório de avaliação do modelo             |
 
 ## Estrutura
 
@@ -83,10 +83,10 @@ npm run build        # build completo
 
 ## Variáveis de ambiente
 
-| Variável | Padrão | Descrição |
-|---|---|---|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | URL base da API Sentinel |
-| `NEXT_PUBLIC_API_KEY` | `""` | Chave de API para endpoints protegidos (opcional em dev) |
+| Variável              | Padrão                  | Descrição                                                |
+| --------------------- | ----------------------- | -------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | URL base da API Sentinel                                 |
+| `NEXT_PUBLIC_API_KEY` | `""`                    | Chave de API para endpoints protegidos (opcional em dev) |
 
 Crie `.env.local` na pasta `frontend/` com os valores reais. **Nunca comite `.env.local`.**
 

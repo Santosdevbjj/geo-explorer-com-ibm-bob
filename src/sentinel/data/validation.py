@@ -78,7 +78,12 @@ def validate_batch(records: list[dict[str, Any]]) -> ValidationReport:
         if event_id in seen_ids:
             if event_id not in duplicate_ids:
                 duplicate_ids.append(event_id)
-            logger.debug("event_id duplicado: %s (índices %d e %d)", event_id, seen_ids[event_id], idx)
+            logger.debug(
+                "event_id duplicado: %s (índices %d e %d)",
+                event_id,
+                seen_ids[event_id],
+                idx,
+            )
         else:
             seen_ids[event_id] = idx
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
@@ -11,19 +11,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 from sentinel.detection.rules import (
     BruteForceRule,
     InjectionRule,
-    RuleMatch,
     TrafficSpikeRule,
     apply_rules,
 )
 from sentinel.schemas import LogEvent
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 
 def _ts(offset_seconds: int = 0) -> str:
     """Timestamp UTC com offset em segundos a partir de um ponto base."""
-    base = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 1, 15, 12, 0, 0, tzinfo=UTC)
     return (base + timedelta(seconds=offset_seconds)).isoformat()
 
 
@@ -33,14 +31,16 @@ def _make_auth(
     status: str = "failure",
     offset: int = 0,
 ) -> LogEvent:
-    return LogEvent.model_validate({
-        "event_id": event_id,
-        "timestamp": _ts(offset),
-        "source_ip": ip,
-        "event_type": "auth_attempt",
-        "status": status,
-        "metadata": {},
-    })
+    return LogEvent.model_validate(
+        {
+            "event_id": event_id,
+            "timestamp": _ts(offset),
+            "source_ip": ip,
+            "event_type": "auth_attempt",
+            "status": status,
+            "metadata": {},
+        }
+    )
 
 
 def _make_http(
@@ -51,16 +51,18 @@ def _make_http(
     offset: int = 0,
     user_agent: str = "Mozilla/5.0",
 ) -> LogEvent:
-    return LogEvent.model_validate({
-        "event_id": event_id,
-        "timestamp": _ts(offset),
-        "source_ip": ip,
-        "event_type": "http_request",
-        "status": status,
-        "request_path": path,
-        "user_agent": user_agent,
-        "metadata": {},
-    })
+    return LogEvent.model_validate(
+        {
+            "event_id": event_id,
+            "timestamp": _ts(offset),
+            "source_ip": ip,
+            "event_type": "http_request",
+            "status": status,
+            "request_path": path,
+            "user_agent": user_agent,
+            "metadata": {},
+        }
+    )
 
 
 # ── BruteForceRule ─────────────────────────────────────────────────────────
@@ -96,7 +98,9 @@ class TestBruteForceRule:
 
     def test_does_not_fire_on_success(self) -> None:
         """Tentativas bem-sucedidas não contam para brute force."""
-        events = [_make_auth(f"e{i}", status="success", offset=i * 5) for i in range(10)]
+        events = [
+            _make_auth(f"e{i}", status="success", offset=i * 5) for i in range(10)
+        ]
         matches = self.rule.evaluate(events)
         assert matches == []
 
@@ -115,7 +119,9 @@ class TestBruteForceRule:
         matches = self.rule.evaluate(events_a + events_b)
         # Somente IP B deve disparar
         assert len(matches) == 1
-        assert all("2.2.2.2" not in m.rule_name for m in matches)  # verifica que é brute_force
+        assert all(
+            "2.2.2.2" not in m.rule_name for m in matches
+        )  # verifica que é brute_force
         assert matches[0].rule_name == "brute_force"
 
     def test_signal_name(self) -> None:
@@ -188,8 +194,12 @@ class TestTrafficSpikeRule:
 
     def test_isolates_by_ip(self) -> None:
         """IPs distintos avaliados separadamente."""
-        low_traffic = [_make_http(f"l{i}", ip="1.1.1.1", offset=i * 5) for i in range(3)]
-        high_traffic = [_make_http(f"h{i}", ip="2.2.2.2", offset=i * 5) for i in range(5)]
+        low_traffic = [
+            _make_http(f"l{i}", ip="1.1.1.1", offset=i * 5) for i in range(3)
+        ]
+        high_traffic = [
+            _make_http(f"h{i}", ip="2.2.2.2", offset=i * 5) for i in range(5)
+        ]
         matches = self.rule.evaluate(low_traffic + high_traffic)
         assert len(matches) == 1
 

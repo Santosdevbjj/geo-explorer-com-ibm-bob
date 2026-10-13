@@ -18,11 +18,10 @@ diretamente para dados reais. Ver docs/model-card.md.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 from pydantic import BaseModel, Field
-
 
 # ── Schemas de saída ───────────────────────────────────────────────────────
 
@@ -31,9 +30,13 @@ class PerClassMetrics(BaseModel):
     """Métricas para uma classe específica."""
 
     label: str
-    precision: float | None = Field(description="TP / (TP + FP). None se denominador = 0.")
+    precision: float | None = Field(
+        description="TP / (TP + FP). None se denominador = 0."
+    )
     recall: float | None = Field(description="TP / (TP + FN). None se denominador = 0.")
-    f1: float | None = Field(description="Média harmônica de precision e recall. None se impossível.")
+    f1: float | None = Field(
+        description="Média harmônica de precision e recall. None se impossível."
+    )
     support: int = Field(description="Total de amostras desta classe em y_true.")
 
 
@@ -54,7 +57,7 @@ class MetricsReport(BaseModel):
     """
 
     detector_name: str
-    evaluated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    evaluated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     n_samples: int
     n_positive: int = Field(description="Total de anomalias reais em y_true.")
     n_negative: int = Field(description="Total de normais reais em y_true.")
@@ -96,7 +99,7 @@ class ComparisonReport(BaseModel):
     Documenta se o modelo supera a baseline — incluindo casos em que não supera.
     """
 
-    evaluated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    evaluated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     baseline_name: str
     challenger_name: str
     baseline: MetricsReport
@@ -304,7 +307,7 @@ def compute_pr_auc(y_true: np.ndarray, y_score: np.ndarray) -> float | None:
     y_t_sorted = y_t[order]
 
     tp_cumsum = np.cumsum(y_t_sorted)
-    fp_cumsum = np.cumsum(1 - y_t_sorted)
+    np.cumsum(1 - y_t_sorted)
 
     n = len(y_t_sorted)
     total = np.arange(1, n + 1)
@@ -343,14 +346,21 @@ def compare_detectors(
 
     # Delta de recall (classe anomaly — sensibilidade a ataques)
     delta_recall: float | None = None
-    b_rec = next((pc.recall for pc in baseline.per_class if pc.label == "anomaly"), None)
-    c_rec = next((pc.recall for pc in challenger.per_class if pc.label == "anomaly"), None)
+    b_rec = next(
+        (pc.recall for pc in baseline.per_class if pc.label == "anomaly"), None
+    )
+    c_rec = next(
+        (pc.recall for pc in challenger.per_class if pc.label == "anomaly"), None
+    )
     if b_rec is not None and c_rec is not None:
         delta_recall = c_rec - b_rec
 
     # Delta de FPR (menor é melhor para o challenger)
     delta_fpr: float | None = None
-    if baseline.false_positive_rate is not None and challenger.false_positive_rate is not None:
+    if (
+        baseline.false_positive_rate is not None
+        and challenger.false_positive_rate is not None
+    ):
         delta_fpr = challenger.false_positive_rate - baseline.false_positive_rate
 
     # Veredicto
@@ -359,7 +369,9 @@ def compare_detectors(
         beats = delta_f1 > 0.0
 
     # Análise textual — documenta mesmo resultado negativo
-    analysis = _build_analysis(baseline, challenger, delta_f1, delta_recall, delta_fpr, beats)
+    analysis = _build_analysis(
+        baseline, challenger, delta_f1, delta_recall, delta_fpr, beats
+    )
 
     return ComparisonReport(
         baseline_name=baseline.detector_name,

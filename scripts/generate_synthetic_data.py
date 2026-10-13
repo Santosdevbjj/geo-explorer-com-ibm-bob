@@ -4,13 +4,13 @@ Gera eventos de log reproduzíveis com seed fixo.
 Injeta anomalias controláveis para treino e avaliação.
 
 Categorias de evento:
-    normal           → tráfego HTTP/auth legítimo e variado
-    brute_force      → rajada de falhas de autenticação de um mesmo IP
-    endpoint_scan    → varredura sistemática de endpoints HTTP
-    traffic_spike    → pico de requisições de um IP em curto intervalo
+    normal             → tráfego HTTP/auth legítimo e variado
+    brute_force        → rajada de falhas de autenticação de um mesmo IP
+    endpoint_scan      → varredura sistemática de endpoints HTTP
+    traffic_spike      → pico de requisições de um IP em curto intervalo
     injection_attempt → SQL injection, path traversal ou XSS no request_path
-    benign_similar   → casos limítrofes: falhas legítimas, user-agents incomuns
-    invalid          → registros intencionalmente malformados (testes de validação)
+    benign_similar     → casos limítrofes: falhas legítimas, user-agents incomuns
+    invalid            → registros intencionalmente malformados (testes de validação)
 
 AVISO: dados sintéticos não validam eficácia operacional em ambientes reais.
 Parâmetros controlados neste gerador não refletem a distribuição de ataques
@@ -31,7 +31,7 @@ import logging
 import random
 import sys
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -176,19 +176,21 @@ def _generate_brute_force_burst(
     events = []
     for i in range(n):
         ts = base_time + timedelta(seconds=i * rng.randint(1, 5))
-        events.append({
-            "event_id": _new_event_id(rng),
-            "timestamp": ts.isoformat(),
-            "source_ip": source_ip,
-            "dest_ip": _random_ip(rng, private=False),
-            "dest_port": 443,
-            "protocol": "HTTPS",
-            "event_type": "auth_attempt",
-            "status": rng.choices(STATUSES, weights=STATUS_WEIGHTS_BRUTE, k=1)[0],
-            "user_id": f"user_{rng.randint(1, 100)}",
-            "payload_size_bytes": rng.randint(128, 512),
-            "metadata": {"label": "brute_force"},
-        })
+        events.append(
+            {
+                "event_id": _new_event_id(rng),
+                "timestamp": ts.isoformat(),
+                "source_ip": source_ip,
+                "dest_ip": _random_ip(rng, private=False),
+                "dest_port": 443,
+                "protocol": "HTTPS",
+                "event_type": "auth_attempt",
+                "status": rng.choices(STATUSES, weights=STATUS_WEIGHTS_BRUTE, k=1)[0],
+                "user_id": f"user_{rng.randint(1, 100)}",
+                "payload_size_bytes": rng.randint(128, 512),
+                "metadata": {"label": "brute_force"},
+            }
+        )
     return events
 
 
@@ -204,21 +206,23 @@ def _generate_endpoint_scan_burst(
     rng.shuffle(paths)
     for i in range(n):
         ts = base_time + timedelta(milliseconds=i * rng.randint(100, 800))
-        events.append({
-            "event_id": _new_event_id(rng),
-            "timestamp": ts.isoformat(),
-            "source_ip": source_ip,
-            "dest_ip": _random_ip(rng, private=False),
-            "dest_port": rng.choice([80, 443, 8080, 8443]),
-            "protocol": rng.choice(["HTTP", "HTTPS"]),
-            "event_type": "http_request",
-            "status": rng.choice(["failure", "blocked", "timeout"]),
-            "user_id": None,
-            "payload_size_bytes": rng.randint(64, 256),
-            "request_path": paths[i % len(paths)],
-            "user_agent": rng.choice(SCANNER_AGENTS),
-            "metadata": {"label": "endpoint_scan"},
-        })
+        events.append(
+            {
+                "event_id": _new_event_id(rng),
+                "timestamp": ts.isoformat(),
+                "source_ip": source_ip,
+                "dest_ip": _random_ip(rng, private=False),
+                "dest_port": rng.choice([80, 443, 8080, 8443]),
+                "protocol": rng.choice(["HTTP", "HTTPS"]),
+                "event_type": "http_request",
+                "status": rng.choice(["failure", "blocked", "timeout"]),
+                "user_id": None,
+                "payload_size_bytes": rng.randint(64, 256),
+                "request_path": paths[i % len(paths)],
+                "user_agent": rng.choice(SCANNER_AGENTS),
+                "metadata": {"label": "endpoint_scan"},
+            }
+        )
     return events
 
 
@@ -235,23 +239,26 @@ def _generate_traffic_spike_burst(
     """
     events = []
     for i in range(n):
-        # Intervalo curtíssimo entre requisições — característica principal do spike
         ts = base_time + timedelta(milliseconds=i * rng.randint(10, 200))
-        events.append({
-            "event_id": _new_event_id(rng),
-            "timestamp": ts.isoformat(),
-            "source_ip": source_ip,
-            "dest_ip": _random_ip(rng, private=False),
-            "dest_port": rng.choice([80, 443]),
-            "protocol": rng.choice(["HTTP", "HTTPS"]),
-            "event_type": "http_request",
-            "status": rng.choices(["success", "failure", "timeout"], weights=[0.6, 0.3, 0.1], k=1)[0],
-            "user_id": None,
-            "payload_size_bytes": rng.randint(64, 4096),
-            "request_path": rng.choice(NORMAL_PATHS),
-            "user_agent": rng.choice(SCANNER_AGENTS[:3]),
-            "metadata": {"label": "traffic_spike"},
-        })
+        events.append(
+            {
+                "event_id": _new_event_id(rng),
+                "timestamp": ts.isoformat(),
+                "source_ip": source_ip,
+                "dest_ip": _random_ip(rng, private=False),
+                "dest_port": rng.choice([80, 443]),
+                "protocol": rng.choice(["HTTP", "HTTPS"]),
+                "event_type": "http_request",
+                "status": rng.choices(
+                    ["success", "failure", "timeout"], weights=[0.6, 0.3, 0.1], k=1
+                )[0],
+                "user_id": None,
+                "payload_size_bytes": rng.randint(64, 4096),
+                "request_path": rng.choice(NORMAL_PATHS),
+                "user_agent": rng.choice(SCANNER_AGENTS[:3]),
+                "metadata": {"label": "traffic_spike"},
+            }
+        )
     return events
 
 
@@ -276,15 +283,7 @@ def _generate_injection_event(rng: random.Random, base_time: datetime) -> dict:
 
 
 def _generate_benign_similar_event(rng: random.Random, base_time: datetime) -> dict:
-    """Evento benigno que superficialmente parece suspeito (caso limítrofe).
-
-    Exemplos:
-    - Usuário legítimo com muitas falhas (senha esquecida)
-    - Developer usando python-requests / curl para testar a própria API
-    - Health-checker automatizado acessando /health repetidamente
-
-    Objetivo: evitar que o modelo aprenda a classificar pela surface sozinha.
-    """
+    """Evento benigno que superficialmente parece suspeito (caso limítrofe)."""
     scenario = rng.choice(["failed_logins", "automation_agent", "health_poller"])
     ts = base_time + timedelta(seconds=rng.randint(0, 3600))
 
@@ -297,7 +296,6 @@ def _generate_benign_similar_event(rng: random.Random, base_time: datetime) -> d
             "dest_port": 443,
             "protocol": "HTTPS",
             "event_type": "auth_attempt",
-            # Algumas falhas seguidas — mas user_id fixo indica usuário real
             "status": "failure",
             "user_id": f"user_{rng.randint(1, 500)}",
             "payload_size_bytes": rng.randint(128, 512),
@@ -316,7 +314,6 @@ def _generate_benign_similar_event(rng: random.Random, base_time: datetime) -> d
             "user_id": f"svc_{rng.randint(1, 20)}",
             "payload_size_bytes": rng.randint(64, 1024),
             "request_path": rng.choice(NORMAL_PATHS),
-            # User-agent borderline: automatizado mas legítimo
             "user_agent": rng.choice(BORDERLINE_AGENTS),
             "metadata": {"label": "benign_similar", "scenario": "automation_agent"},
         }
@@ -339,21 +336,16 @@ def _generate_benign_similar_event(rng: random.Random, base_time: datetime) -> d
 
 
 def _generate_invalid_records(rng: random.Random, n: int) -> list[dict]:
-    """Registros intencionalmente malformados para testes de validação de schema.
-
-    Cada registro introduz exatamente um tipo de defeito diferente.
-    """
+    """Registros intencionalmente malformados para testes de validação de schema."""
     defects = [
-        # IP inválido
         {
             "event_id": _new_event_id(rng),
-            "timestamp": datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone.utc).isoformat(),
+            "timestamp": datetime(2025, 1, 15, 10, 0, 0, tzinfo=UTC).isoformat(),
             "source_ip": "999.999.999.999",
             "event_type": "http_request",
             "status": "success",
             "metadata": {"label": "invalid", "defect": "invalid_ip"},
         },
-        # Timestamp sem timezone
         {
             "event_id": _new_event_id(rng),
             "timestamp": "2025-01-15T10:00:00",
@@ -362,53 +354,47 @@ def _generate_invalid_records(rng: random.Random, n: int) -> list[dict]:
             "status": "failure",
             "metadata": {"label": "invalid", "defect": "missing_timezone"},
         },
-        # event_type desconhecido
         {
             "event_id": _new_event_id(rng),
-            "timestamp": datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone.utc).isoformat(),
+            "timestamp": datetime(2025, 1, 15, 10, 0, 0, tzinfo=UTC).isoformat(),
             "source_ip": "192.168.1.2",
             "event_type": "unknown_type",
             "status": "success",
             "metadata": {"label": "invalid", "defect": "unknown_event_type"},
         },
-        # payload_size negativo
         {
             "event_id": _new_event_id(rng),
-            "timestamp": datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone.utc).isoformat(),
+            "timestamp": datetime(2025, 1, 15, 10, 0, 0, tzinfo=UTC).isoformat(),
             "source_ip": "192.168.1.3",
             "event_type": "http_request",
             "status": "success",
             "payload_size_bytes": -100,
             "metadata": {"label": "invalid", "defect": "negative_payload_size"},
         },
-        # dest_port fora do intervalo
         {
             "event_id": _new_event_id(rng),
-            "timestamp": datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone.utc).isoformat(),
+            "timestamp": datetime(2025, 1, 15, 10, 0, 0, tzinfo=UTC).isoformat(),
             "source_ip": "192.168.1.4",
             "event_type": "network_flow",
             "status": "success",
             "dest_port": 99999,
             "metadata": {"label": "invalid", "defect": "port_out_of_range"},
         },
-        # status inválido
         {
             "event_id": _new_event_id(rng),
-            "timestamp": datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone.utc).isoformat(),
+            "timestamp": datetime(2025, 1, 15, 10, 0, 0, tzinfo=UTC).isoformat(),
             "source_ip": "192.168.1.5",
             "event_type": "auth_attempt",
             "status": "not_a_real_status",
             "metadata": {"label": "invalid", "defect": "invalid_status"},
         },
-        # source_ip ausente
         {
             "event_id": _new_event_id(rng),
-            "timestamp": datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone.utc).isoformat(),
+            "timestamp": datetime(2025, 1, 15, 10, 0, 0, tzinfo=UTC).isoformat(),
             "event_type": "http_request",
             "status": "success",
             "metadata": {"label": "invalid", "defect": "missing_source_ip"},
         },
-        # timestamp ausente
         {
             "event_id": _new_event_id(rng),
             "source_ip": "192.168.1.6",
@@ -417,7 +403,6 @@ def _generate_invalid_records(rng: random.Random, n: int) -> list[dict]:
             "metadata": {"label": "invalid", "defect": "missing_timestamp"},
         },
     ]
-    # Retorna no máximo n registros inválidos, ciclando se necessário
     return [defects[i % len(defects)] for i in range(n)]
 
 
@@ -431,47 +416,32 @@ def generate_events(
     include_invalid: bool = False,
     n_invalid: int = 8,
 ) -> list[dict]:
-    """Gera lista de eventos sintéticos com anomalias injetadas.
-
-    As categorias anômalas são distribuídas igualmente entre:
-    brute_force, endpoint_scan, traffic_spike, injection_attempt, benign_similar.
-
-    Args:
-        n_events: Total de eventos (excluindo registros inválidos).
-        anomaly_rate: Proporção de eventos anômalos (0.0–1.0).
-        seed: Semente para reprodutibilidade.
-        include_invalid: Se True, adiciona registros inválidos ao final.
-        n_invalid: Quantidade de registros inválidos a incluir (máx 8).
-
-    Returns:
-        Lista de dicionários compatíveis com o schema LogEvent
-        (exceto registros inválidos, que violam o schema intencionalmente).
-
-    Note:
-        Dados sintéticos não validam eficácia operacional em ambientes reais.
-    """
-    rng = random.Random(seed)
-    base_time = datetime(2025, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    """Gera lista de eventos sintéticos com anomalias injetadas."""
+    rng = random.Random(seed)  # nosec B311
+    base_time = datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC)
 
     n_anomalies = max(5, int(n_events * anomaly_rate))
     n_normal = n_events - n_anomalies
 
-    # Divide anomalias entre 5 categorias igualmente
-    anomaly_categories = ["brute_force", "endpoint_scan", "traffic_spike", "injection", "benign_similar"]
+    anomaly_categories = [
+        "brute_force",
+        "endpoint_scan",
+        "traffic_spike",
+        "injection",
+        "benign_similar",
+    ]
     per_category = n_anomalies // len(anomaly_categories)
     remainders = n_anomalies - per_category * len(anomaly_categories)
 
-    category_counts = {cat: per_category for cat in anomaly_categories}
+    category_counts = dict.fromkeys(anomaly_categories, per_category)
     for i in range(remainders):
         category_counts[anomaly_categories[i]] += 1
 
     events: list[dict] = []
 
-    # Normais
     for _ in range(n_normal):
         events.append(_generate_normal_event(rng, base_time))
 
-    # Brute force: múltiplos bursts
     bf_total = category_counts["brute_force"]
     burst_size = max(8, bf_total // max(1, bf_total // 15))
     injected = 0
@@ -482,7 +452,6 @@ def generate_events(
         events.extend(_generate_brute_force_burst(rng, burst_ts, attacker_ip, count))
         injected += count
 
-    # Endpoint scan: múltiplos scanners
     es_total = category_counts["endpoint_scan"]
     scan_size = max(6, es_total // max(1, es_total // 12))
     injected = 0
@@ -493,7 +462,6 @@ def generate_events(
         events.extend(_generate_endpoint_scan_burst(rng, scan_ts, scanner_ip, count))
         injected += count
 
-    # Traffic spike: múltiplos IPs
     ts_total = category_counts["traffic_spike"]
     spike_size = max(10, ts_total // max(1, ts_total // 8))
     injected = 0
@@ -504,18 +472,14 @@ def generate_events(
         events.extend(_generate_traffic_spike_burst(rng, spike_ts, spike_ip, count))
         injected += count
 
-    # Injection attempts
     for _ in range(category_counts["injection"]):
         events.append(_generate_injection_event(rng, base_time))
 
-    # Benign similar (casos limítrofes)
     for _ in range(category_counts["benign_similar"]):
         events.append(_generate_benign_similar_event(rng, base_time))
 
-    # Embaralha para simular ordem real de ingestão
     rng.shuffle(events)
 
-    # Registros inválidos ao final (não embaralhados, para facilitar identificação nos testes)
     if include_invalid:
         n_invalid_clamped = min(n_invalid, 8)
         events.extend(_generate_invalid_records(rng, n_invalid_clamped))
@@ -558,10 +522,24 @@ def main() -> None:
             "Use apenas para desenvolvimento, testes e avaliação de pipeline."
         ),
     )
-    parser.add_argument("--n-events", type=int, default=2000, help="Total de eventos (padrão: 2000)")
-    parser.add_argument("--anomaly-rate", type=float, default=0.05, help="Taxa de anomalias 0–1 (padrão: 0.05)")
-    parser.add_argument("--seed", type=int, default=42, help="Seed para reprodutibilidade (padrão: 42)")
-    parser.add_argument("--output", type=str, default="data/synthetic/events.jsonl", help="Caminho de saída")
+    parser.add_argument(
+        "--n-events", type=int, default=2000, help="Total de eventos (padrão: 2000)"
+    )
+    parser.add_argument(
+        "--anomaly-rate",
+        type=float,
+        default=0.05,
+        help="Taxa de anomalias 0–1 (padrão: 0.05)",
+    )
+    parser.add_argument(
+        "--seed", type=int, default=42, help="Seed para reprodutibilidade (padrão: 42)"
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="data/synthetic/events.jsonl",
+        help="Caminho de saída",
+    )
     parser.add_argument(
         "--include-invalid",
         action="store_true",
@@ -576,7 +554,10 @@ def main() -> None:
     args = parser.parse_args()
 
     if not 0.0 < args.anomaly_rate < 1.0:
-        logger.error("--anomaly-rate deve estar entre 0 e 1 (exclusivo). Recebido: %s", args.anomaly_rate)
+        logger.error(
+            "--anomaly-rate deve estar entre 0 e 1 (exclusivo). Recebido: %s",
+            args.anomaly_rate,
+        )
         sys.exit(1)
 
     if args.n_events < 10:

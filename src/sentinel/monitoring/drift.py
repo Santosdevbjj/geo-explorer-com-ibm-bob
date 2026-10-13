@@ -14,7 +14,7 @@ Threshold configurável via: DRIFT_ALERT_THRESHOLD no .env
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -49,8 +49,10 @@ class FeatureDrift(BaseModel):
 class DriftReport(BaseModel):
     """Resultado completo da verificação de drift."""
 
-    checked_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    drift_detected: bool = Field(description="True se alguma feature ultrapassou o threshold.")
+    checked_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    drift_detected: bool = Field(
+        description="True se alguma feature ultrapassou o threshold."
+    )
     threshold: float
     n_current_samples: int
     n_reference_samples: int
@@ -169,7 +171,9 @@ def check_drift(
             # Compatibilidade com artefatos antigos; requer pyarrow/fastparquet.
             reference_df = pd.read_parquet(ref_path)
         else:
-            raise ValueError("Formato de referência não suportado; use .json ou .parquet.")
+            raise ValueError(
+                "Formato de referência não suportado; use .json ou .parquet."
+            )
     except Exception as exc:  # noqa: BLE001
         msg = f"Erro ao carregar referência: {exc}"
         logger.error(msg)
@@ -186,8 +190,13 @@ def check_drift(
     any_drift = False
 
     for feature in MONITORED_FEATURES:
-        if feature not in reference_df.columns or feature not in current_features.columns:
-            logger.warning("Feature '%s' ausente na referência ou atual — ignorada.", feature)
+        if (
+            feature not in reference_df.columns
+            or feature not in current_features.columns
+        ):
+            logger.warning(
+                "Feature '%s' ausente na referência ou atual — ignorada.", feature
+            )
             continue
 
         ref_arr = reference_df[feature].dropna().to_numpy(dtype=float)
@@ -201,7 +210,9 @@ def check_drift(
         detected = psi > thr
         if detected:
             any_drift = True
-            logger.warning("Drift detectado em '%s': PSI=%.4f (threshold=%.4f)", feature, psi, thr)
+            logger.warning(
+                "Drift detectado em '%s': PSI=%.4f (threshold=%.4f)", feature, psi, thr
+            )
 
         feature_results.append(
             FeatureDrift(
@@ -218,5 +229,7 @@ def check_drift(
         n_current_samples=len(current_features),
         n_reference_samples=len(reference_df),
         features=feature_results,
-        message="OK" if not any_drift else f"Drift detectado em {sum(f.drift_detected for f in feature_results)} feature(s).",
+        message="OK"
+        if not any_drift
+        else f"Drift detectado em {sum(f.drift_detected for f in feature_results)} feature(s).",
     )

@@ -1,4 +1,5 @@
 """Testes das ferramentas MCP locais sem exigir o SDK no job unitário."""
+
 from __future__ import annotations
 
 import importlib.util

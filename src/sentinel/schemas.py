@@ -10,18 +10,17 @@ Hierarquia:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 from pydantic.networks import IPvAnyAddress
 
-
 # ── Enumerações ────────────────────────────────────────────────────────────
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     """Tipos de evento suportados pelo Sentinel."""
 
     AUTH_ATTEMPT = "auth_attempt"
@@ -30,7 +29,7 @@ class EventType(str, Enum):
     NETWORK_FLOW = "network_flow"
 
 
-class EventStatus(str, Enum):
+class EventStatus(StrEnum):
     """Resultado do evento."""
 
     SUCCESS = "success"
@@ -39,7 +38,7 @@ class EventStatus(str, Enum):
     TIMEOUT = "timeout"
 
 
-class Protocol(str, Enum):
+class Protocol(StrEnum):
     """Protocolos de rede reconhecidos."""
 
     TCP = "TCP"
@@ -49,7 +48,7 @@ class Protocol(str, Enum):
     HTTPS = "HTTPS"
 
 
-class AlertCategory(str, Enum):
+class AlertCategory(StrEnum):
     """Categorias de alerta geradas pelo Sentinel."""
 
     BRUTE_FORCE = "brute_force"
@@ -59,7 +58,7 @@ class AlertCategory(str, Enum):
     UNKNOWN = "unknown"
 
 
-class AlertPriority(str, Enum):
+class AlertPriority(StrEnum):
     """Níveis de prioridade de um alerta."""
 
     LOW = "low"
@@ -68,7 +67,7 @@ class AlertPriority(str, Enum):
     CRITICAL = "critical"
 
 
-class SignalSource(str, Enum):
+class SignalSource(StrEnum):
     """Origem do sinal de detecção."""
 
     RULE = "rule"
@@ -93,23 +92,35 @@ class LogEvent(BaseModel):
     )
     source_ip: IPvAnyAddress = Field(description="IP de origem da requisição.")
     dest_ip: IPvAnyAddress | None = Field(default=None, description="IP de destino.")
-    dest_port: int | None = Field(default=None, ge=1, le=65535, description="Porta de destino.")
+    dest_port: int | None = Field(
+        default=None, ge=1, le=65535, description="Porta de destino."
+    )
     protocol: Protocol | None = Field(default=None, description="Protocolo de rede.")
     event_type: EventType = Field(description="Tipo do evento.")
     status: EventStatus = Field(description="Resultado do evento.")
-    user_id: str | None = Field(default=None, description="Identificador anonimizado do usuário.")
-    payload_size_bytes: int | None = Field(default=None, ge=0, description="Tamanho do payload em bytes.")
+    user_id: str | None = Field(
+        default=None, description="Identificador anonimizado do usuário."
+    )
+    payload_size_bytes: int | None = Field(
+        default=None, ge=0, description="Tamanho do payload em bytes."
+    )
     user_agent: str | None = Field(default=None, description="User-agent HTTP.")
-    request_path: str | None = Field(default=None, description="Caminho da requisição HTTP.")
-    metadata: dict[str, Any] = Field(default_factory=dict, description="Campos adicionais livres.")
+    request_path: str | None = Field(
+        default=None, description="Caminho da requisição HTTP."
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Campos adicionais livres."
+    )
 
     @field_validator("timestamp")
     @classmethod
     def require_timezone(cls, v: datetime) -> datetime:
         """Garante que o timestamp sempre carrega informação de timezone."""
         if v.tzinfo is None:
-            raise ValueError("timestamp deve incluir timezone. Use UTC (ex: 2025-01-15T14:23:00Z).")
-        return v.astimezone(timezone.utc)
+            raise ValueError(
+                "timestamp deve incluir timezone. Use UTC (ex: 2025-01-15T14:23:00Z)."
+            )
+        return v.astimezone(UTC)
 
 
 # ── Modelos de saída ───────────────────────────────────────────────────────
@@ -121,9 +132,15 @@ class Signal(BaseModel):
     Componente central de explicabilidade — cada alerta deve ter pelo menos um sinal.
     """
 
-    name: str = Field(description="Nome descritivo do sinal (ex: 'repeated_auth_failures').")
-    source: SignalSource = Field(description="Origem do sinal: regra explícita ou modelo ML.")
-    value: float = Field(description="Valor numérico observado (ex: contagem de falhas).")
+    name: str = Field(
+        description="Nome descritivo do sinal (ex: 'repeated_auth_failures')."
+    )
+    source: SignalSource = Field(
+        description="Origem do sinal: regra explícita ou modelo ML."
+    )
+    value: float = Field(
+        description="Valor numérico observado (ex: contagem de falhas)."
+    )
     threshold: float = Field(description="Limiar que ativou o sinal.")
     contribution: float = Field(
         ge=0.0,
@@ -148,7 +165,7 @@ class Alert(BaseModel):
         description="Identificador único do alerta.",
     )
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="Timestamp de geração do alerta (UTC).",
     )
     category: AlertCategory = Field(description="Categoria do comportamento detectado.")
@@ -207,8 +224,12 @@ class ValidationReport(BaseModel):
     """
 
     total_records: int = Field(description="Total de registros no batch.")
-    valid_records: int = Field(description="Registros que passaram em todas as validações.")
-    invalid_records: int = Field(description="Registros com pelo menos um erro de validação.")
+    valid_records: int = Field(
+        description="Registros que passaram em todas as validações."
+    )
+    invalid_records: int = Field(
+        description="Registros com pelo menos um erro de validação."
+    )
     duplicate_ids: list[str] = Field(
         default_factory=list,
         description="IDs de eventos duplicados encontrados.",

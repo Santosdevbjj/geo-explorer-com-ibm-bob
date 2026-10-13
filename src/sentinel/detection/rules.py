@@ -14,10 +14,9 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from sentinel.schemas import EventStatus, EventType, LogEvent, Signal, SignalSource
-
 
 # ── Resultado de uma regra ─────────────────────────────────────────────────
 
@@ -63,21 +62,21 @@ class BruteForceRule(BaseRule):
         auth_failures: dict[str, list[LogEvent]] = defaultdict(list)
 
         for evt in events:
-            if evt.event_type == EventType.AUTH_ATTEMPT and evt.status == EventStatus.FAILURE:
+            if (
+                evt.event_type == EventType.AUTH_ATTEMPT
+                and evt.status == EventStatus.FAILURE
+            ):
                 auth_failures[str(evt.source_ip)].append(evt)
 
         matches: list[RuleMatch] = []
         window = timedelta(seconds=self.window_seconds)
 
-        for ip, failures in auth_failures.items():
+        for _ip, failures in auth_failures.items():
             failures_sorted = sorted(failures, key=lambda e: e.timestamp)
             # Janela deslizante O(n²) — aceitável para batches analíticos
             for i, anchor in enumerate(failures_sorted):
                 window_end = anchor.timestamp + window
-                burst = [
-                    e for e in failures_sorted[i:]
-                    if e.timestamp <= window_end
-                ]
+                burst = [e for e in failures_sorted[i:] if e.timestamp <= window_end]
                 if len(burst) >= self.min_failures:
                     matches.append(
                         RuleMatch(
@@ -87,7 +86,9 @@ class BruteForceRule(BaseRule):
                                 source=SignalSource.RULE,
                                 value=float(len(burst)),
                                 threshold=float(self.min_failures),
-                                contribution=min(1.0, len(burst) / (self.min_failures * 3)),
+                                contribution=min(
+                                    1.0, len(burst) / (self.min_failures * 3)
+                                ),
                             ),
                             matched_event_ids=[e.event_id for e in burst],
                         )
@@ -123,7 +124,7 @@ class TrafficSpikeRule(BaseRule):
         matches: list[RuleMatch] = []
         window = timedelta(seconds=self.window_seconds)
 
-        for ip, reqs in http_events.items():
+        for _ip, reqs in http_events.items():
             reqs_sorted = sorted(reqs, key=lambda e: e.timestamp)
             for i, anchor in enumerate(reqs_sorted):
                 window_end = anchor.timestamp + window
@@ -137,7 +138,9 @@ class TrafficSpikeRule(BaseRule):
                                 source=SignalSource.RULE,
                                 value=float(len(burst)),
                                 threshold=float(self.request_threshold),
-                                contribution=min(1.0, len(burst) / (self.request_threshold * 2)),
+                                contribution=min(
+                                    1.0, len(burst) / (self.request_threshold * 2)
+                                ),
                             ),
                             matched_event_ids=[e.event_id for e in burst],
                         )

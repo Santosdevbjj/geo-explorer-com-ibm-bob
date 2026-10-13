@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
@@ -17,7 +17,6 @@ from sentinel.features.engineering import (
 )
 from sentinel.schemas import LogEvent
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 # EXPECTED_COLUMNS agora referencia o schema canônico exportado pelo módulo,
@@ -26,7 +25,7 @@ EXPECTED_COLUMNS = set(FEATURE_COLUMNS)
 
 
 def _ts(offset_seconds: int = 0) -> str:
-    base = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 1, 15, 12, 0, 0, tzinfo=UTC)
     return (base + timedelta(seconds=offset_seconds)).isoformat()
 
 
@@ -82,7 +81,9 @@ class TestDataFrameSchema:
 class TestFeatureValues:
     def test_auth_failure_rate_all_failures(self) -> None:
         """5 auth failures → auth_failure_rate = 1.0 na primeira janela."""
-        events = [_make_event(f"e{i}", status="failure", offset=i * 10) for i in range(5)]
+        events = [
+            _make_event(f"e{i}", status="failure", offset=i * 10) for i in range(5)
+        ]
         df = extract_features(events, window_seconds=300)
         # Primeira janela do único IP
         row = df.iloc[0]
@@ -113,9 +114,27 @@ class TestFeatureValues:
 
     def test_unique_paths_counts_distinct(self) -> None:
         events = [
-            _make_event("e1", event_type="http_request", status="success", request_path="/a", offset=0),
-            _make_event("e2", event_type="http_request", status="success", request_path="/a", offset=10),
-            _make_event("e3", event_type="http_request", status="success", request_path="/b", offset=20),
+            _make_event(
+                "e1",
+                event_type="http_request",
+                status="success",
+                request_path="/a",
+                offset=0,
+            ),
+            _make_event(
+                "e2",
+                event_type="http_request",
+                status="success",
+                request_path="/a",
+                offset=10,
+            ),
+            _make_event(
+                "e3",
+                event_type="http_request",
+                status="success",
+                request_path="/b",
+                offset=20,
+            ),
         ]
         df = extract_features(events, window_seconds=300)
         row = df.iloc[0]
@@ -192,25 +211,38 @@ class TestEdgeCases:
 
     def test_payload_none_treated_as_zero(self) -> None:
         """payload_size_bytes=None deve ser tratado como 0."""
-        event = LogEvent.model_validate({
-            "event_id": "e-no-payload",
-            "timestamp": _ts(0),
-            "source_ip": "10.0.0.1",
-            "event_type": "auth_attempt",
-            "status": "success",
-            "metadata": {},
-        })
+        event = LogEvent.model_validate(
+            {
+                "event_id": "e-no-payload",
+                "timestamp": _ts(0),
+                "source_ip": "10.0.0.1",
+                "event_type": "auth_attempt",
+                "status": "success",
+                "metadata": {},
+            }
+        )
         df = extract_features([event])
         assert df.iloc[0]["payload_size_mean"] == 0.0
 
     def test_no_http_events_request_count_zero(self) -> None:
-        events = [_make_event(f"e{i}", event_type="auth_attempt", offset=i * 10) for i in range(3)]
+        events = [
+            _make_event(f"e{i}", event_type="auth_attempt", offset=i * 10)
+            for i in range(3)
+        ]
         df = extract_features(events, window_seconds=300)
         assert df.iloc[0]["request_count"] == 0
 
     def test_all_features_are_numeric(self) -> None:
         events = [_make_event(f"e{i}", offset=i * 10) for i in range(3)]
         df = extract_features(events, window_seconds=300)
-        numeric_cols = ["auth_failure_rate", "request_count", "unique_paths", "failure_ratio", "payload_size_mean"]
+        numeric_cols = [
+            "auth_failure_rate",
+            "request_count",
+            "unique_paths",
+            "failure_ratio",
+            "payload_size_mean",
+        ]
         for col in numeric_cols:
-            assert pd.api.types.is_numeric_dtype(df[col]), f"Coluna {col} não é numérica"
+            assert pd.api.types.is_numeric_dtype(df[col]), (
+                f"Coluna {col} não é numérica"
+            )

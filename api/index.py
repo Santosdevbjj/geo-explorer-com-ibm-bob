@@ -37,7 +37,11 @@ def _enforce_event_size(events: list[dict[str, Any]]) -> None:
 
     for index, event in enumerate(events):
         try:
-            size = len(json.dumps(event, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+            size = len(
+                json.dumps(event, ensure_ascii=False, separators=(",", ":")).encode(
+                    "utf-8"
+                )
+            )
         except (TypeError, ValueError):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -48,7 +52,6 @@ def _enforce_event_size(events: list[dict[str, Any]]) -> None:
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail=f"Evento na posição {index} excede o limite de {MAX_EVENT_BYTES} bytes.",
             )
-
 
 
 # ── Autenticação (ADR-005) ─────────────────────────────────────────────────
@@ -76,6 +79,7 @@ async def require_api_key(x_api_key: Annotated[str | None, Header()] = None) -> 
             detail="API key inválida ou ausente. Inclua o header X-Api-Key.",
             headers={"WWW-Authenticate": "ApiKey"},
         )
+
 
 # ── Lifespan (startup: carrega modelo) ────────────────────────────────────
 
@@ -131,14 +135,16 @@ class IngestRequest(BaseModel):
     events: list[dict[str, Any]] = Field(
         min_length=1,
         description="Lista de eventos de log em formato dicionário.",
-        examples=[[
-            {
-                "timestamp": "2025-01-15T14:23:00Z",
-                "source_ip": "192.168.1.10",
-                "event_type": "auth_attempt",
-                "status": "failure",
-            }
-        ]],
+        examples=[
+            [
+                {
+                    "timestamp": "2025-01-15T14:23:00Z",
+                    "source_ip": "192.168.1.10",
+                    "event_type": "auth_attempt",
+                    "status": "failure",
+                }
+            ]
+        ],
     )
 
 
@@ -195,7 +201,6 @@ class ModelInfoResponse(BaseModel):
 def health() -> dict[str, str]:
     """Verifica se a API está operacional."""
     return {"status": "ok", "service": "sentinel", "version": "0.1.0"}
-
 
 
 @app.get(

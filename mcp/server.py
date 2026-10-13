@@ -3,6 +3,7 @@
 Inicie na raiz do repositório após instalar `pip install -e ".[mcp]"`.
 Transporte stdio; logs devem permanecer em stderr (gerenciados pelo SDK).
 """
+
 from __future__ import annotations
 
 import importlib.util

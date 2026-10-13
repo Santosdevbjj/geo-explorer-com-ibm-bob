@@ -17,11 +17,12 @@ operacional dos dados em ambientes reais.
 from __future__ import annotations
 
 import json
+import random
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-
 from scripts.generate_synthetic_data import (
     INJECTION_PATHS,
     NORMAL_PATHS,
@@ -31,23 +32,18 @@ from scripts.generate_synthetic_data import (
     _generate_endpoint_scan_burst,
     _generate_injection_event,
     _generate_invalid_records,
-    _generate_normal_event,
     _generate_traffic_spike_burst,
     _random_ip,
     generate_events,
     save_jsonl,
 )
 
-import random
-from datetime import datetime, timezone
-
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
 @pytest.fixture
 def base_time() -> datetime:
-    return datetime(2025, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    return datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC)
 
 
 @pytest.fixture
@@ -64,7 +60,9 @@ def small_events() -> list[dict]:
 @pytest.fixture
 def events_with_invalid() -> list[dict]:
     """Conjunto com registros inválidos ao final."""
-    return generate_events(n_events=100, anomaly_rate=0.05, seed=42, include_invalid=True, n_invalid=8)
+    return generate_events(
+        n_events=100, anomaly_rate=0.05, seed=42, include_invalid=True, n_invalid=8
+    )
 
 
 # ── Reprodutibilidade ─────────────────────────────────────────────────────────
@@ -104,9 +102,13 @@ class TestCounts:
         labels = [e["metadata"]["label"] for e in events]
         n_anomaly = sum(1 for lb in labels if lb != "normal")
         actual_rate = n_anomaly / len(events)
-        assert abs(actual_rate - 0.10) < 0.02, f"Taxa esperada ~10%, obtida {actual_rate:.2%}"
+        assert abs(actual_rate - 0.10) < 0.02, (
+            f"Taxa esperada ~10%, obtida {actual_rate:.2%}"
+        )
 
-    def test_include_invalid_adds_records(self, events_with_invalid: list[dict]) -> None:
+    def test_include_invalid_adds_records(
+        self, events_with_invalid: list[dict]
+    ) -> None:
         """Com include_invalid=True o total deve ser 100 + 8 registros inválidos."""
         assert len(events_with_invalid) == 108
 
@@ -128,7 +130,13 @@ class TestCounts:
 class TestCategoryDistribution:
     """Todas as 5 categorias de anomalia devem estar presentes."""
 
-    ANOMALY_LABELS = {"brute_force", "endpoint_scan", "traffic_spike", "injection_attempt", "benign_similar"}
+    ANOMALY_LABELS = {
+        "brute_force",
+        "endpoint_scan",
+        "traffic_spike",
+        "injection_attempt",
+        "benign_similar",
+    }
 
     def test_all_anomaly_categories_present(self) -> None:
         events = generate_events(n_events=500, anomaly_rate=0.10, seed=42)
@@ -144,7 +152,8 @@ class TestCategoryDistribution:
         expected_labels = self.ANOMALY_LABELS | {"normal"}
         events = generate_events(n_events=300, anomaly_rate=0.10, seed=42)
         unexpected = {
-            e["metadata"]["label"] for e in events
+            e["metadata"]["label"]
+            for e in events
             if e["metadata"]["label"] not in expected_labels
         }
         assert not unexpected, f"Labels inesperados: {unexpected}"
@@ -156,7 +165,14 @@ class TestCategoryDistribution:
 class TestSchema:
     """Campos obrigatórios do LogEvent devem estar presentes nos eventos válidos."""
 
-    REQUIRED_FIELDS = {"event_id", "timestamp", "source_ip", "event_type", "status", "metadata"}
+    REQUIRED_FIELDS = {
+        "event_id",
+        "timestamp",
+        "source_ip",
+        "event_type",
+        "status",
+        "metadata",
+    }
 
     def test_required_fields_present(self, small_events: list[dict]) -> None:
         for i, event in enumerate(small_events):
@@ -165,11 +181,14 @@ class TestSchema:
 
     def test_event_id_is_uuid_format(self, small_events: list[dict]) -> None:
         import re
+
         uuid_pattern = re.compile(
             r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
         )
         for event in small_events:
-            assert uuid_pattern.match(event["event_id"]), f"event_id inválido: {event['event_id']}"
+            assert uuid_pattern.match(event["event_id"]), (
+                f"event_id inválido: {event['event_id']}"
+            )
 
     def test_timestamp_has_timezone(self, small_events: list[dict]) -> None:
         """Todos os timestamps válidos devem ter offset de timezone (+HH:MM ou Z)."""
@@ -181,7 +200,9 @@ class TestSchema:
     def test_event_type_valid_values(self, small_events: list[dict]) -> None:
         valid = {"auth_attempt", "http_request", "dns_query", "network_flow"}
         for event in small_events:
-            assert event["event_type"] in valid, f"event_type inválido: {event['event_type']}"
+            assert event["event_type"] in valid, (
+                f"event_type inválido: {event['event_type']}"
+            )
 
     def test_status_valid_values(self, small_events: list[dict]) -> None:
         valid = {"success", "failure", "blocked", "timeout"}
@@ -211,27 +232,36 @@ class TestSchema:
 
 
 class TestBruteForce:
-    def test_event_type_is_auth_attempt(self, base_time: datetime, rng: random.Random) -> None:
+    def test_event_type_is_auth_attempt(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         burst = _generate_brute_force_burst(rng, base_time, "10.0.0.1", 15)
         assert all(e["event_type"] == "auth_attempt" for e in burst)
 
     def test_all_same_source_ip(self, base_time: datetime, rng: random.Random) -> None:
         burst = _generate_brute_force_burst(rng, base_time, "10.0.0.1", 10)
         ips = {e["source_ip"] for e in burst}
-        assert ips == {"10.0.0.1"}, "Todos os eventos do burst devem ter o mesmo source_ip"
+        assert ips == {"10.0.0.1"}, (
+            "Todos os eventos do burst devem ter o mesmo source_ip"
+        )
 
     def test_mostly_failures(self, base_time: datetime, rng: random.Random) -> None:
         burst = _generate_brute_force_burst(rng, base_time, "10.0.0.1", 50)
         failures = sum(1 for e in burst if e["status"] == "failure")
         assert failures / len(burst) > 0.7, "Brute force deve ter maioria de failures"
 
-    def test_label_is_brute_force(self, base_time: datetime, rng: random.Random) -> None:
+    def test_label_is_brute_force(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         burst = _generate_brute_force_burst(rng, base_time, "10.0.0.1", 5)
         assert all(e["metadata"]["label"] == "brute_force" for e in burst)
 
-    def test_timestamps_all_after_base_time(self, base_time: datetime, rng: random.Random) -> None:
+    def test_timestamps_all_after_base_time(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         """Todos os eventos do burst devem ter timestamp >= base_time."""
         from datetime import datetime as dt
+
         burst = _generate_brute_force_burst(rng, base_time, "10.0.0.1", 10)
         for e in burst:
             ts = dt.fromisoformat(e["timestamp"])
@@ -239,7 +269,9 @@ class TestBruteForce:
 
 
 class TestEndpointScan:
-    def test_event_type_is_http_request(self, base_time: datetime, rng: random.Random) -> None:
+    def test_event_type_is_http_request(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         burst = _generate_endpoint_scan_burst(rng, base_time, "203.0.113.1", 10)
         assert all(e["event_type"] == "http_request" for e in burst)
 
@@ -248,23 +280,37 @@ class TestEndpointScan:
         ips = {e["source_ip"] for e in burst}
         assert ips == {"203.0.113.1"}
 
-    def test_paths_are_scan_paths(self, base_time: datetime, rng: random.Random) -> None:
-        burst = _generate_endpoint_scan_burst(rng, base_time, "203.0.113.1", len(SCAN_PATHS))
+    def test_paths_are_scan_paths(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
+        burst = _generate_endpoint_scan_burst(
+            rng, base_time, "203.0.113.1", len(SCAN_PATHS)
+        )
         paths = {e["request_path"] for e in burst}
-        assert paths.issubset(set(SCAN_PATHS)), f"Paths inesperados: {paths - set(SCAN_PATHS)}"
+        assert paths.issubset(set(SCAN_PATHS)), (
+            f"Paths inesperados: {paths - set(SCAN_PATHS)}"
+        )
 
-    def test_label_is_endpoint_scan(self, base_time: datetime, rng: random.Random) -> None:
+    def test_label_is_endpoint_scan(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         burst = _generate_endpoint_scan_burst(rng, base_time, "203.0.113.1", 5)
         assert all(e["metadata"]["label"] == "endpoint_scan" for e in burst)
 
-    def test_mostly_non_success_status(self, base_time: datetime, rng: random.Random) -> None:
+    def test_mostly_non_success_status(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         burst = _generate_endpoint_scan_burst(rng, base_time, "203.0.113.1", 40)
         non_success = sum(1 for e in burst if e["status"] != "success")
-        assert non_success / len(burst) > 0.5, "Scan deve ter maioria de respostas não-sucesso"
+        assert non_success / len(burst) > 0.5, (
+            "Scan deve ter maioria de respostas não-sucesso"
+        )
 
 
 class TestTrafficSpike:
-    def test_event_type_is_http_request(self, base_time: datetime, rng: random.Random) -> None:
+    def test_event_type_is_http_request(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         burst = _generate_traffic_spike_burst(rng, base_time, "203.0.113.2", 20)
         assert all(e["event_type"] == "http_request" for e in burst)
 
@@ -273,9 +319,12 @@ class TestTrafficSpike:
         ips = {e["source_ip"] for e in burst}
         assert ips == {"203.0.113.2"}
 
-    def test_timestamps_very_close(self, base_time: datetime, rng: random.Random) -> None:
+    def test_timestamps_very_close(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         """Intervalo total do spike não pode ultrapassar o intervalo máximo (n * 200ms)."""
         from datetime import datetime as dt
+
         n = 20
         burst = _generate_traffic_spike_burst(rng, base_time, "203.0.113.2", n)
         t_first = dt.fromisoformat(burst[0]["timestamp"])
@@ -289,26 +338,36 @@ class TestTrafficSpike:
         for e in burst:
             assert e["request_path"] in NORMAL_PATHS
 
-    def test_label_is_traffic_spike(self, base_time: datetime, rng: random.Random) -> None:
+    def test_label_is_traffic_spike(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         burst = _generate_traffic_spike_burst(rng, base_time, "203.0.113.2", 5)
         assert all(e["metadata"]["label"] == "traffic_spike" for e in burst)
 
 
 class TestInjection:
-    def test_event_type_is_http_request(self, base_time: datetime, rng: random.Random) -> None:
+    def test_event_type_is_http_request(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         event = _generate_injection_event(rng, base_time)
         assert event["event_type"] == "http_request"
 
-    def test_path_is_injection_path(self, base_time: datetime, rng: random.Random) -> None:
+    def test_path_is_injection_path(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         for _ in range(20):
             event = _generate_injection_event(rng, base_time)
             assert event["request_path"] in INJECTION_PATHS
 
-    def test_label_is_injection_attempt(self, base_time: datetime, rng: random.Random) -> None:
+    def test_label_is_injection_attempt(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         event = _generate_injection_event(rng, base_time)
         assert event["metadata"]["label"] == "injection_attempt"
 
-    def test_status_is_failure_or_blocked(self, base_time: datetime, rng: random.Random) -> None:
+    def test_status_is_failure_or_blocked(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         statuses = set()
         for _ in range(30):
             statuses.add(_generate_injection_event(rng, base_time)["status"])
@@ -318,17 +377,23 @@ class TestInjection:
 class TestBenignSimilar:
     VALID_SCENARIOS = {"failed_logins", "automation_agent", "health_poller"}
 
-    def test_label_is_benign_similar(self, base_time: datetime, rng: random.Random) -> None:
+    def test_label_is_benign_similar(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         for _ in range(10):
             event = _generate_benign_similar_event(rng, base_time)
             assert event["metadata"]["label"] == "benign_similar"
 
-    def test_scenario_field_present(self, base_time: datetime, rng: random.Random) -> None:
+    def test_scenario_field_present(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         for _ in range(10):
             event = _generate_benign_similar_event(rng, base_time)
             assert "scenario" in event["metadata"]
 
-    def test_scenario_values_are_known(self, base_time: datetime, rng: random.Random) -> None:
+    def test_scenario_values_are_known(
+        self, base_time: datetime, rng: random.Random
+    ) -> None:
         for _ in range(30):
             event = _generate_benign_similar_event(rng, base_time)
             assert event["metadata"]["scenario"] in self.VALID_SCENARIOS
@@ -336,7 +401,7 @@ class TestBenignSimilar:
     def test_all_scenarios_reachable(self) -> None:
         """Com seed diferente e N amostras suficientes, todos os scenarios devem aparecer."""
         rng = random.Random(123)
-        base_time = datetime(2025, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+        base_time = datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC)
         scenarios = set()
         for _ in range(100):
             e = _generate_benign_similar_event(rng, base_time)
@@ -403,30 +468,40 @@ class TestInvalidRecords:
 
     def test_missing_timezone_has_no_offset(self, rng: random.Random) -> None:
         records = _generate_invalid_records(rng, 8)
-        tz_rec = next(r for r in records if r["metadata"]["defect"] == "missing_timezone")
+        tz_rec = next(
+            r for r in records if r["metadata"]["defect"] == "missing_timezone"
+        )
         ts = tz_rec["timestamp"]
         has_tz = ts.endswith("Z") or "+" in ts
         assert not has_tz, f"Esperava timestamp sem timezone, obteve: {ts}"
 
     def test_negative_payload_is_negative(self, rng: random.Random) -> None:
         records = _generate_invalid_records(rng, 8)
-        neg_rec = next(r for r in records if r["metadata"]["defect"] == "negative_payload_size")
+        neg_rec = next(
+            r for r in records if r["metadata"]["defect"] == "negative_payload_size"
+        )
         assert neg_rec["payload_size_bytes"] < 0
 
     def test_port_out_of_range_exceeds_65535(self, rng: random.Random) -> None:
         records = _generate_invalid_records(rng, 8)
-        port_rec = next(r for r in records if r["metadata"]["defect"] == "port_out_of_range")
+        port_rec = next(
+            r for r in records if r["metadata"]["defect"] == "port_out_of_range"
+        )
         assert port_rec["dest_port"] > 65535
 
     def test_cycles_when_n_less_than_8(self, rng: random.Random) -> None:
         records = _generate_invalid_records(rng, 3)
         assert len(records) == 3
 
-    def test_invalid_records_at_end_of_batch(self, events_with_invalid: list[dict]) -> None:
+    def test_invalid_records_at_end_of_batch(
+        self, events_with_invalid: list[dict]
+    ) -> None:
         """Registros inválidos devem estar nas últimas 8 posições (não embaralhados)."""
         last_8 = events_with_invalid[-8:]
         labels = {e["metadata"]["label"] for e in last_8}
-        assert labels == {"invalid"}, f"Esperava só 'invalid' no final, obteve: {labels}"
+        assert labels == {"invalid"}, (
+            f"Esperava só 'invalid' no final, obteve: {labels}"
+        )
 
 
 # ── Integração: save_jsonl ────────────────────────────────────────────────────
@@ -450,7 +525,9 @@ class TestSaveJsonl:
         with tempfile.TemporaryDirectory() as tmpdir:
             out = Path(tmpdir) / "test_events.jsonl"
             save_jsonl(small_events, out)
-            for i, line in enumerate(out.read_text(encoding="utf-8").strip().splitlines()):
+            for i, line in enumerate(
+                out.read_text(encoding="utf-8").strip().splitlines()
+            ):
                 parsed = json.loads(line)
                 assert isinstance(parsed, dict), f"Linha {i} não é um objeto JSON"
 
@@ -518,9 +595,13 @@ class TestEdgeCases:
 
     def test_n_invalid_capped_at_8(self) -> None:
         """n_invalid=20 deve ser limitado a 8 internamente."""
-        events = generate_events(n_events=50, seed=42, include_invalid=True, n_invalid=20)
+        events = generate_events(
+            n_events=50, seed=42, include_invalid=True, n_invalid=20
+        )
         invalid_count = sum(1 for e in events if e["metadata"]["label"] == "invalid")
-        assert invalid_count == 8, f"Esperava 8 registros inválidos, obteve {invalid_count}"
+        assert invalid_count == 8, (
+            f"Esperava 8 registros inválidos, obteve {invalid_count}"
+        )
 
     def test_events_are_shuffled(self) -> None:
         """Eventos devem estar embaralhados (não todos agrupados por label).

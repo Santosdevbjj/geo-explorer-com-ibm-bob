@@ -5,29 +5,32 @@
  * sobre as limitações do score de detecção.
  */
 
-import { fetchMetrics } from '@/lib/api'
+import { fetchMetrics } from "@/lib/api";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-async function getMetrics() {
+async function getMetrics(): Promise<{ data: any; error: string | null }> {
   try {
-    const data = await fetchMetrics()
-    return { data, error: null }
-  } catch (err) {
-    return { data: null, error: String(err) }
+    const data = await fetchMetrics();
+    return { data, error: null };
+  } catch (err: unknown) {
+    return { data: null, error: String(err) };
   }
 }
 
 export default async function MetricsPage() {
-  const { data, error } = await getMetrics()
+  const { data, error } = await getMetrics();
 
   return (
     <div className="space-y-6">
       {/* ── Cabeçalho ─────────────────────────────────────────────────── */}
       <div>
-        <h1 className="text-xl font-bold text-sentinel-text">Métricas do Modelo</h1>
+        <h1 className="text-xl font-bold text-sentinel-text">
+          Métricas do Modelo
+        </h1>
         <p className="text-sm text-sentinel-muted mt-0.5">
-          Avaliação sobre dados sintéticos · Não representa desempenho em dados reais
+          Avaliação sobre dados sintéticos · Não representa desempenho em dados
+          reais
         </p>
       </div>
 
@@ -35,53 +38,60 @@ export default async function MetricsPage() {
       <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-sm text-orange-900 space-y-1">
         <p className="font-semibold">⚠️ Sobre as métricas</p>
         <p>
-          Os valores abaixo foram calculados sobre <strong>dados sintéticos com rótulos simulados</strong>.
-          Eles servem apenas para comparação entre versões do modelo —
-          não representam desempenho em dados reais de produção.
+          Os valores abaixo foram calculados sobre{" "}
+          <strong>dados sintéticos com rótulos simulados</strong>. Eles servem
+          apenas para comparação entre versões do modelo — não representam
+          desempenho em dados reais de produção.
         </p>
         <p>
-          O <strong>score de anomalia</strong> não é uma probabilidade calibrada.
-          Não o interprete como &ldquo;X% de chance de ser um ataque&rdquo;.
+          O <strong>score de anomalia</strong> não é uma probabilidade
+          calibrada. Não o interprete como &ldquo;X% de chance de ser um
+          ataque&rdquo;.
         </p>
       </div>
 
       {/* ── Erro de conexão ───────────────────────────────────────────── */}
-      {error && (
+      {error !== null ? (
         <div className="sentinel-card bg-red-50 border-red-200 text-sm text-red-800">
           Erro ao buscar métricas: {error}
         </div>
-      )}
+      ) : null}
 
       {/* ── Status do modelo ──────────────────────────────────────────── */}
       {data && (
         <div className="sentinel-card space-y-2">
-          <h2 className="font-semibold text-sentinel-text text-sm">Status do Modelo</h2>
+          <h2 className="font-semibold text-sentinel-text text-sm">
+            Status do Modelo
+          </h2>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <MetaItem
               label="Versão"
-              value={String(data.model_version ?? '—')}
+              value={String(data.model_version ?? "—")}
             />
             <MetaItem
               label="Modelo carregado"
-              value={data.model_loaded ? '✅ Sim' : '⚠️ Não (modo rules-only)'}
+              value={data.model_loaded ? "✅ Sim" : "⚠️ Não (modo rules-only)"}
             />
           </div>
         </div>
       )}
 
       {/* ── Relatório de avaliação ────────────────────────────────────── */}
-      {data?.evaluation && typeof data.evaluation === 'object' && (
-        <EvaluationBlock evaluation={data.evaluation as Record<string, unknown>} />
+      {data?.evaluation && typeof data.evaluation === "object" && (
+        <EvaluationBlock
+          evaluation={data.evaluation as Record<string, unknown>}
+        />
       )}
 
       {/* ── Link para model-card ──────────────────────────────────────── */}
       <div className="sentinel-card bg-sentinel-surface text-sm text-sentinel-muted space-y-1">
         <p className="font-medium text-sentinel-text">Documentação completa</p>
         <p>
-          O model-card com limitações detalhadas, features e decisões de design está em{' '}
+          O model-card com limitações detalhadas, features e decisões de design
+          está em{" "}
           <code className="font-mono bg-white border border-sentinel-border rounded px-1">
             docs/model-card.md
-          </code>{' '}
+          </code>{" "}
           no repositório.
         </p>
         <a
@@ -94,7 +104,7 @@ export default async function MetricsPage() {
         </a>
       </div>
     </div>
-  )
+  );
 }
 
 function MetaItem({ label, value }: { label: string; value: string }) {
@@ -103,38 +113,56 @@ function MetaItem({ label, value }: { label: string; value: string }) {
       <p className="text-xs text-sentinel-muted">{label}</p>
       <p className="font-medium text-sentinel-text">{value}</p>
     </div>
-  )
+  );
 }
 
-function EvaluationBlock({ evaluation }: { evaluation: Record<string, unknown> }) {
+function EvaluationBlock({
+  evaluation,
+}: {
+  evaluation: Record<string, unknown>;
+}) {
+  const evalObj = evaluation as {
+    message?: unknown;
+    results?: unknown;
+    disclaimer?: unknown;
+  };
+
   // Caso sem relatório disponível
-  if ('message' in evaluation) {
+  if ("message" in evalObj && evalObj.message) {
     return (
       <div className="sentinel-card text-sm text-sentinel-muted space-y-1">
         <p className="font-medium text-sentinel-text">Relatório de Avaliação</p>
-        <p>{String(evaluation.message)}</p>
+        <p>{String(evalObj.message)}</p>
         <p className="text-xs">
-          Execute:{' '}
+          Execute:{" "}
           <code className="font-mono bg-sentinel-surface border border-sentinel-border rounded px-1">
             python scripts/evaluate_model.py
           </code>
         </p>
       </div>
-    )
+    );
   }
 
-  const results = (evaluation.results as Array<Record<string, unknown>> | undefined) ?? []
+  const results =
+    (evalObj.results as Array<Record<string, unknown>> | undefined) ?? [];
 
   return (
     <div className="space-y-3">
-      <h2 className="font-semibold text-sentinel-text text-sm">Relatório de Avaliação</h2>
+      <h2 className="font-semibold text-sentinel-text text-sm">
+        Relatório de Avaliação
+      </h2>
       {results.length === 0 ? (
-        <p className="text-sm text-sentinel-muted">Nenhum resultado disponível.</p>
+        <p className="text-sm text-sentinel-muted">
+          Nenhum resultado disponível.
+        </p>
       ) : (
         results.map((r, i) => (
           <div key={i} className="sentinel-card space-y-3">
             <p className="font-medium text-sentinel-text text-sm">
-              Detector: <code className="font-mono text-sentinel-accent">{String(r.detector)}</code>
+              Detector:{" "}
+              <code className="font-mono text-sentinel-accent">
+                {String(r.detector ?? "—")}
+              </code>
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
               <MetricValue label="Precision" value={r.precision} />
@@ -143,9 +171,11 @@ function EvaluationBlock({ evaluation }: { evaluation: Record<string, unknown> }
               <MetricValue label="FPR" value={r.false_positive_rate} />
             </div>
             <div className="grid grid-cols-4 gap-2 text-xs text-center pt-2 border-t border-sentinel-border">
-              {(['tp', 'fp', 'fn', 'tn'] as const).map((key) => (
+              {(["tp", "fp", "fn", "tn"] as const).map((key) => (
                 <div key={key} className="bg-sentinel-surface rounded p-1.5">
-                  <div className="font-bold text-sentinel-text">{String(r[key] ?? '—')}</div>
+                  <div className="font-bold text-sentinel-text">
+                    {String(r[key] ?? "—")}
+                  </div>
                   <div className="text-sentinel-muted uppercase">{key}</div>
                 </div>
               ))}
@@ -153,19 +183,21 @@ function EvaluationBlock({ evaluation }: { evaluation: Record<string, unknown> }
           </div>
         ))
       )}
-      {evaluation.disclaimer && (
-        <p className="text-xs text-sentinel-muted italic">{String(evaluation.disclaimer)}</p>
+      {Boolean(evalObj.disclaimer) && (
+        <p className="text-xs text-sentinel-muted italic">
+          {String(evalObj.disclaimer)}
+        </p>
       )}
     </div>
-  )
+  );
 }
 
 function MetricValue({ label, value }: { label: string; value: unknown }) {
-  const display = value === null || value === undefined ? '—' : String(value)
+  const display = value === null || value === undefined ? "—" : String(value);
   return (
     <div>
       <p className="text-xs text-sentinel-muted">{label}</p>
       <p className="font-bold text-sentinel-text">{display}</p>
     </div>
-  )
+  );
 }

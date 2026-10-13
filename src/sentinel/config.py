@@ -23,14 +23,20 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
     # API
-    api_host: str = Field(default="0.0.0.0", alias="API_HOST")
+    api_host: str = Field(default="0.0.0.0", alias="API_HOST")  # nosec B104
     api_port: int = Field(default=8000, alias="API_PORT")
-    api_secret_key: str = Field(default="change-me-in-production", alias="API_SECRET_KEY")
+    api_secret_key: str = Field(
+        default="change-me-in-production", alias="API_SECRET_KEY"
+    )
 
     # Caminhos de dados
     data_raw_dir: str = Field(default="data/raw", alias="DATA_RAW_DIR")
-    data_processed_dir: str = Field(default="data/processed", alias="DATA_PROCESSED_DIR")
-    data_synthetic_dir: str = Field(default="data/synthetic", alias="DATA_SYNTHETIC_DIR")
+    data_processed_dir: str = Field(
+        default="data/processed", alias="DATA_PROCESSED_DIR"
+    )
+    data_synthetic_dir: str = Field(
+        default="data/synthetic", alias="DATA_SYNTHETIC_DIR"
+    )
 
     # Modelos
     model_dir: str = Field(default="models", alias="MODEL_DIR")
@@ -49,7 +55,7 @@ class Settings(BaseSettings):
 
     # MCP
     mcp_enabled: bool = Field(default=False, alias="MCP_ENABLED")
-    mcp_host: str = Field(default="0.0.0.0", alias="MCP_HOST")
+    mcp_host: str = Field(default="0.0.0.0", alias="MCP_HOST")  # nosec B104
     mcp_port: int = Field(default=9000, alias="MCP_PORT")
 
     # Monitoramento / drift

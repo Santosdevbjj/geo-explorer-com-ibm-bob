@@ -14,7 +14,7 @@ Cobre:
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -36,12 +36,11 @@ from sentinel.features.engineering import (
 )
 from sentinel.schemas import LogEvent
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
 def _ts(offset_seconds: int = 0) -> str:
-    base = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 1, 15, 12, 0, 0, tzinfo=UTC)
     return (base + timedelta(seconds=offset_seconds)).isoformat()
 
 
@@ -74,23 +73,28 @@ def _make_event(
 def _make_raw_df(n: int = 20, seed: int = 0) -> pd.DataFrame:
     """DataFrame de eventos brutos sem metadata.label para funções de EDA."""
     import random
+
     rng = random.Random(seed)
-    base = datetime(2025, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC)
     event_types = ["auth_attempt", "http_request", "dns_query", "network_flow"]
     statuses = ["success", "failure", "blocked", "timeout"]
     paths = ["/api/v1/login", "/api/v1/data", "/.env", "/admin", None]
     rows = []
     for i in range(n):
-        rows.append({
-            "event_id": f"evt-{i:04d}",
-            "timestamp": (base + timedelta(seconds=rng.randint(0, 3600))).isoformat(),
-            "source_ip": f"10.0.0.{rng.randint(1, 5)}",
-            "event_type": rng.choice(event_types),
-            "status": rng.choice(statuses),
-            "request_path": rng.choice(paths),
-            "user_agent": rng.choice([None, "Mozilla/5.0", "sqlmap/1.7"]),
-            "payload_size_bytes": rng.randint(64, 4096),
-        })
+        rows.append(
+            {
+                "event_id": f"evt-{i:04d}",
+                "timestamp": (
+                    base + timedelta(seconds=rng.randint(0, 3600))
+                ).isoformat(),
+                "source_ip": f"10.0.0.{rng.randint(1, 5)}",
+                "event_type": rng.choice(event_types),
+                "status": rng.choice(statuses),
+                "request_path": rng.choice(paths),
+                "user_agent": rng.choice([None, "Mozilla/5.0", "sqlmap/1.7"]),
+                "payload_size_bytes": rng.randint(64, 4096),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -103,12 +107,21 @@ class TestFeatureColumns:
 
     def test_feature_columns_contains_required(self) -> None:
         required = {
-            "source_ip", "window_start",
-            "auth_failure_rate", "auth_failure_count",
-            "request_count", "unique_paths", "req_per_second", "scan_path_hits",
-            "failure_ratio", "error_count", "timeout_ratio",
-            "payload_size_mean", "payload_size_std",
-            "inter_event_mean_ms", "inter_event_min_ms",
+            "source_ip",
+            "window_start",
+            "auth_failure_rate",
+            "auth_failure_count",
+            "request_count",
+            "unique_paths",
+            "req_per_second",
+            "scan_path_hits",
+            "failure_ratio",
+            "error_count",
+            "timeout_ratio",
+            "payload_size_mean",
+            "payload_size_std",
+            "inter_event_mean_ms",
+            "inter_event_min_ms",
             "scanner_agent_ratio",
         }
         assert required.issubset(set(FEATURE_COLUMNS))
@@ -137,7 +150,9 @@ class TestAuthFailureCount:
         assert df.iloc[0]["auth_failure_count"] == 2.0
 
     def test_auth_failure_count_zero_when_all_success(self) -> None:
-        events = [_make_event(f"e{i}", status="success", offset=i * 10) for i in range(3)]
+        events = [
+            _make_event(f"e{i}", status="success", offset=i * 10) for i in range(3)
+        ]
         df = extract_features(events, window_seconds=300)
         assert df.iloc[0]["auth_failure_count"] == 0.0
 
@@ -151,7 +166,9 @@ class TestReqPerSecond:
     def test_req_per_second_formula(self) -> None:
         # 3 http_request, window=60s → req_per_second = 3/60
         events = [
-            _make_event(f"e{i}", event_type="http_request", status="success", offset=i * 5)
+            _make_event(
+                f"e{i}", event_type="http_request", status="success", offset=i * 5
+            )
             for i in range(3)
         ]
         df = extract_features(events, window_seconds=60)
@@ -161,20 +178,40 @@ class TestReqPerSecond:
 class TestScanPathHits:
     def test_scan_path_hits_known_path(self) -> None:
         events = [
-            _make_event("e1", event_type="http_request", status="blocked",
-                        request_path="/.env", offset=0),
-            _make_event("e2", event_type="http_request", status="blocked",
-                        request_path="/admin", offset=5),
-            _make_event("e3", event_type="http_request", status="success",
-                        request_path="/api/v1/login", offset=10),
+            _make_event(
+                "e1",
+                event_type="http_request",
+                status="blocked",
+                request_path="/.env",
+                offset=0,
+            ),
+            _make_event(
+                "e2",
+                event_type="http_request",
+                status="blocked",
+                request_path="/admin",
+                offset=5,
+            ),
+            _make_event(
+                "e3",
+                event_type="http_request",
+                status="success",
+                request_path="/api/v1/login",
+                offset=10,
+            ),
         ]
         df = extract_features(events, window_seconds=300)
         assert df.iloc[0]["scan_path_hits"] == 2.0
 
     def test_scan_path_hits_zero_for_normal_paths(self) -> None:
         events = [
-            _make_event("e1", event_type="http_request", status="success",
-                        request_path="/api/v1/data", offset=0),
+            _make_event(
+                "e1",
+                event_type="http_request",
+                status="success",
+                request_path="/api/v1/data",
+                offset=0,
+            ),
         ]
         df = extract_features(events, window_seconds=300)
         assert df.iloc[0]["scan_path_hits"] == 0.0
@@ -197,7 +234,9 @@ class TestErrorCount:
         assert df.iloc[0]["error_count"] == 2.0
 
     def test_error_count_zero_when_all_success(self) -> None:
-        events = [_make_event(f"e{i}", status="success", offset=i * 10) for i in range(3)]
+        events = [
+            _make_event(f"e{i}", status="success", offset=i * 10) for i in range(3)
+        ]
         df = extract_features(events, window_seconds=300)
         assert df.iloc[0]["error_count"] == 0.0
 
@@ -214,7 +253,9 @@ class TestTimeoutRatio:
         assert abs(df.iloc[0]["timeout_ratio"] - 0.5) < 1e-9
 
     def test_timeout_ratio_zero_when_no_timeouts(self) -> None:
-        events = [_make_event(f"e{i}", status="success", offset=i * 5) for i in range(3)]
+        events = [
+            _make_event(f"e{i}", status="success", offset=i * 5) for i in range(3)
+        ]
         df = extract_features(events, window_seconds=300)
         assert df.iloc[0]["timeout_ratio"] == 0.0
 
@@ -233,7 +274,9 @@ class TestPayloadSizeStd:
         assert df.iloc[0]["payload_size_std"] > 0.0
 
     def test_payload_std_zero_for_uniform_sizes(self) -> None:
-        events = [_make_event(f"e{i}", payload_size=200, offset=i * 5) for i in range(4)]
+        events = [
+            _make_event(f"e{i}", payload_size=200, offset=i * 5) for i in range(4)
+        ]
         df = extract_features(events, window_seconds=300)
         assert df.iloc[0]["payload_size_std"] == 0.0
 
@@ -258,27 +301,31 @@ class TestInterEventStats:
         # Intervalos: 1s, 5s, 1s → min=1000ms
         events = [
             _make_event("e1", offset=0),
-            _make_event("e2", offset=1),    # +1s
-            _make_event("e3", offset=6),    # +5s
-            _make_event("e4", offset=7),    # +1s
+            _make_event("e2", offset=1),  # +1s
+            _make_event("e3", offset=6),  # +5s
+            _make_event("e4", offset=7),  # +1s
         ]
         df = extract_features(events, window_seconds=300)
         assert abs(df.iloc[0]["inter_event_min_ms"] - 1000.0) < 1.0
 
     def test_inter_event_spike_pattern(self) -> None:
         """Traffic spike: eventos a cada 50ms → inter_event_mean ≈ 50ms."""
-        base = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2025, 1, 15, 12, 0, 0, tzinfo=UTC)
         events = []
         for i in range(5):
             ts = (base + timedelta(milliseconds=i * 50)).isoformat()
-            events.append(LogEvent.model_validate({
-                "event_id": f"spike-{i}",
-                "timestamp": ts,
-                "source_ip": "10.0.0.1",
-                "event_type": "http_request",
-                "status": "success",
-                "metadata": {},
-            }))
+            events.append(
+                LogEvent.model_validate(
+                    {
+                        "event_id": f"spike-{i}",
+                        "timestamp": ts,
+                        "source_ip": "10.0.0.1",
+                        "event_type": "http_request",
+                        "status": "success",
+                        "metadata": {},
+                    }
+                )
+            )
         df = extract_features(events, window_seconds=300)
         # Primeira janela deve ter inter_event_mean_ms ≈ 50ms
         assert df.iloc[0]["inter_event_mean_ms"] < 200.0
@@ -287,10 +334,20 @@ class TestInterEventStats:
 class TestScannerAgentRatio:
     def test_scanner_agent_ratio_sqlmap(self) -> None:
         events = [
-            _make_event("e1", event_type="http_request", status="blocked",
-                        user_agent="sqlmap/1.7.8", offset=0),
-            _make_event("e2", event_type="http_request", status="success",
-                        user_agent="Mozilla/5.0", offset=5),
+            _make_event(
+                "e1",
+                event_type="http_request",
+                status="blocked",
+                user_agent="sqlmap/1.7.8",
+                offset=0,
+            ),
+            _make_event(
+                "e2",
+                event_type="http_request",
+                status="success",
+                user_agent="Mozilla/5.0",
+                offset=5,
+            ),
         ]
         df = extract_features(events, window_seconds=300)
         assert abs(df.iloc[0]["scanner_agent_ratio"] - 0.5) < 1e-9
@@ -311,8 +368,13 @@ class TestScannerAgentRatio:
 
     def test_scanner_agent_ratio_nikto(self) -> None:
         events = [
-            _make_event("e1", user_agent="Nikto/2.1.6", event_type="http_request",
-                        status="blocked", offset=0),
+            _make_event(
+                "e1",
+                user_agent="Nikto/2.1.6",
+                event_type="http_request",
+                status="blocked",
+                offset=0,
+            ),
         ]
         df = extract_features(events, window_seconds=300)
         assert df.iloc[0]["scanner_agent_ratio"] == 1.0
@@ -387,8 +449,12 @@ class TestDeterminism:
         df1 = extract_features(events, window_seconds=300)
         df2 = extract_features(reversed_events, window_seconds=300)
         # Mesmo conjunto de (source_ip, window_start, feature) após ordenação
-        df1_sorted = df1.sort_values(["source_ip", "window_start"]).reset_index(drop=True)
-        df2_sorted = df2.sort_values(["source_ip", "window_start"]).reset_index(drop=True)
+        df1_sorted = df1.sort_values(["source_ip", "window_start"]).reset_index(
+            drop=True
+        )
+        df2_sorted = df2.sort_values(["source_ip", "window_start"]).reset_index(
+            drop=True
+        )
         pd.testing.assert_frame_equal(df1_sorted, df2_sorted)
 
 
@@ -492,20 +558,26 @@ class TestComputeRequestFrequency:
         df = _make_raw_df(50, seed=2)
         result = compute_request_frequency(df)
         if len(result) > 1:
-            assert result["request_count"].is_monotonic_decreasing or \
-                   result["request_count"].iloc[0] >= result["request_count"].iloc[-1]
+            assert (
+                result["request_count"].is_monotonic_decreasing
+                or result["request_count"].iloc[0] >= result["request_count"].iloc[-1]
+            )
 
     def test_empty_df_returns_empty(self) -> None:
         result = compute_request_frequency(pd.DataFrame())
         assert result.empty
 
     def test_no_http_events_returns_empty(self) -> None:
-        df = pd.DataFrame([{
-            "source_ip": "1.1.1.1",
-            "timestamp": "2025-01-15T08:00:00+00:00",
-            "event_type": "auth_attempt",
-            "status": "success",
-        }])
+        df = pd.DataFrame(
+            [
+                {
+                    "source_ip": "1.1.1.1",
+                    "timestamp": "2025-01-15T08:00:00+00:00",
+                    "event_type": "auth_attempt",
+                    "status": "success",
+                }
+            ]
+        )
         result = compute_request_frequency(df)
         assert result.empty
 
@@ -526,22 +598,31 @@ class TestComputeErrorRateByType:
         assert (result["error_rate"] <= 1.0).all()
 
     def test_all_success_zero_error_rate(self) -> None:
-        df = pd.DataFrame([{
-            "source_ip": "1.1.1.1",
-            "timestamp": "2025-01-15T08:00:00+00:00",
-            "event_type": "http_request",
-            "status": "success",
-        }])
+        df = pd.DataFrame(
+            [
+                {
+                    "source_ip": "1.1.1.1",
+                    "timestamp": "2025-01-15T08:00:00+00:00",
+                    "event_type": "http_request",
+                    "status": "success",
+                }
+            ]
+        )
         result = compute_error_rate_by_type(df)
         assert result.iloc[0]["error_rate"] == 0.0
 
     def test_all_failures_full_error_rate(self) -> None:
-        df = pd.DataFrame([{
-            "source_ip": "1.1.1.1",
-            "timestamp": "2025-01-15T08:00:00+00:00",
-            "event_type": "auth_attempt",
-            "status": "failure",
-        } for _ in range(5)])
+        df = pd.DataFrame(
+            [
+                {
+                    "source_ip": "1.1.1.1",
+                    "timestamp": "2025-01-15T08:00:00+00:00",
+                    "event_type": "auth_attempt",
+                    "status": "failure",
+                }
+                for _ in range(5)
+            ]
+        )
         result = compute_error_rate_by_type(df)
         assert result.iloc[0]["error_rate"] == 1.0
 
@@ -608,16 +689,18 @@ class TestComputeTemporalRepetition:
 
     def test_cv_zero_for_uniform_distribution(self) -> None:
         """IP com exatamente 1 evento por janela tem CV = 0."""
-        base = datetime(2025, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC)
         rows = []
         for i in range(5):
             ts = base + timedelta(minutes=i * 5)
-            rows.append({
-                "source_ip": "10.0.0.1",
-                "timestamp": ts.isoformat(),
-                "event_type": "http_request",
-                "status": "success",
-            })
+            rows.append(
+                {
+                    "source_ip": "10.0.0.1",
+                    "timestamp": ts.isoformat(),
+                    "event_type": "http_request",
+                    "status": "success",
+                }
+            )
         df = pd.DataFrame(rows)
         result = compute_temporal_repetition(df, window_minutes=5)
         ip_row = result[result["source_ip"] == "10.0.0.1"]

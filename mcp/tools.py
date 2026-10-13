@@ -3,6 +3,7 @@
 As funções não aceitam caminhos do cliente, não executam comandos e não registram
 payloads brutos. A validação de eventos usa o schema Pydantic do próprio produto.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def get_model_info() -> dict[str, Any]:
     """Retorna versão e disponibilidade do modelo, sem expor artefatos."""
     import sys
+
     sys.path.insert(0, str(ROOT / "src"))
     from sentinel.config import settings
     from sentinel.detection.model import get_detector
@@ -28,7 +30,9 @@ def get_model_info() -> dict[str, Any]:
         "algorithm": "IsolationForest",
         "model_loaded": loaded,
         "inference_mode": "rules-only",
-        "model_inference_status": "loaded_not_used_for_alert_scoring" if loaded else "not_loaded",
+        "model_inference_status": "loaded_not_used_for_alert_scoring"
+        if loaded
+        else "not_loaded",
         "score_is_calibrated_probability": False,
         "limitations": [
             "O modelo é um baseline experimental e ainda não compõe o score final dos alertas.",
@@ -42,13 +46,17 @@ def analyze_event(event: dict[str, Any]) -> dict[str, Any]:
     """Valida e analisa um evento; retorna apenas resumo e sinais, não o payload."""
     if not isinstance(event, dict):
         raise ValueError("event deve ser um objeto JSON.")
-    encoded = json.dumps(event, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    encoded = json.dumps(event, ensure_ascii=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
     if len(encoded) > MAX_EVENT_BYTES:
         raise ValueError(f"Evento excede o limite de {MAX_EVENT_BYTES} bytes.")
 
     import sys
+
     sys.path.insert(0, str(ROOT / "src"))
     from pydantic import ValidationError
+
     from sentinel.detection.rules import apply_rules
     from sentinel.detection.scoring import score_matches
     from sentinel.schemas import LogEvent
@@ -82,7 +90,11 @@ def analyze_event(event: dict[str, Any]) -> dict[str, Any]:
             "score": alert.score,
             "score_is_calibrated_probability": False,
             "signals": [
-                {"name": signal.name, "source": str(signal.source), "contribution": signal.contribution}
+                {
+                    "name": signal.name,
+                    "source": str(signal.source),
+                    "contribution": signal.contribution,
+                }
                 for signal in alert.signals
             ],
             "limitations": alert.limitations,
@@ -93,6 +105,7 @@ def analyze_event(event: dict[str, Any]) -> dict[str, Any]:
 def get_metrics_summary() -> dict[str, Any]:
     """Lê somente um relatório fixo de avaliação, selecionando métricas conhecidas."""
     import sys
+
     sys.path.insert(0, str(ROOT / "src"))
     from sentinel.config import settings
 
@@ -106,18 +119,42 @@ def get_metrics_summary() -> dict[str, Any]:
     try:
         report = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"available": False, "message": "Relatório de avaliação indisponível ou inválido."}
+        return {
+            "available": False,
+            "message": "Relatório de avaliação indisponível ou inválido.",
+        }
 
-    allowed = ("precision", "recall", "f1", "f1_score", "pr_auc", "roc_auc", "false_positive_rate", "fpr",
-               "n_samples", "n_test_samples", "model_version", "evaluated_at", "disclaimer")
-    summary = {key: report[key] for key in allowed if key in report and isinstance(report[key], (str, int, float, bool, type(None)))}
-    summary.setdefault("disclaimer", "Métricas de dados sintéticos não representam desempenho real.")
+    allowed = (
+        "precision",
+        "recall",
+        "f1",
+        "f1_score",
+        "pr_auc",
+        "roc_auc",
+        "false_positive_rate",
+        "fpr",
+        "n_samples",
+        "n_test_samples",
+        "model_version",
+        "evaluated_at",
+        "disclaimer",
+    )
+    summary = {
+        key: report[key]
+        for key in allowed
+        if key in report
+        and isinstance(report[key], (str, int, float, bool, type(None)))
+    }
+    summary.setdefault(
+        "disclaimer", "Métricas de dados sintéticos não representam desempenho real."
+    )
     return {"available": True, "summary": summary}
 
 
 def get_drift_summary() -> dict[str, Any]:
     """Lê um resumo de drift fixo; não permite que o cliente escolha um arquivo."""
     import sys
+
     sys.path.insert(0, str(ROOT / "src"))
     from sentinel.config import settings
 
@@ -135,7 +172,10 @@ def get_drift_summary() -> dict[str, Any]:
     try:
         report = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"available": False, "message": "Relatório de drift indisponível ou inválido."}
+        return {
+            "available": False,
+            "message": "Relatório de drift indisponível ou inválido.",
+        }
 
     # Resumo permitido: sem linhas de eventos ou dados brutos.
     return {

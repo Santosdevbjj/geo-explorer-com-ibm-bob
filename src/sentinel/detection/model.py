@@ -31,8 +31,7 @@ import pandas as pd
 from sentinel.config import settings
 
 if TYPE_CHECKING:
-    from sklearn.ensemble import IsolationForest
-    from sklearn.preprocessing import StandardScaler
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -77,16 +76,22 @@ class AnomalyDetector:
         n_estimators: int | None = None,
         random_state: int | None = None,
     ) -> None:
-        self._contamination = contamination if contamination is not None else settings.model_contamination
-        self._n_estimators = n_estimators if n_estimators is not None else settings.model_n_estimators
-        self._random_state = random_state if random_state is not None else settings.model_random_state
+        self._contamination = (
+            contamination if contamination is not None else settings.model_contamination
+        )
+        self._n_estimators = (
+            n_estimators if n_estimators is not None else settings.model_n_estimators
+        )
+        self._random_state = (
+            random_state if random_state is not None else settings.model_random_state
+        )
         self._scaler: Any | None = None
         self._model: Any | None = None
         self._is_fitted: bool = False
 
     # ── Treino ────────────────────────────────────────────────────────────
 
-    def fit(self, X: pd.DataFrame) -> "AnomalyDetector":
+    def fit(self, X: pd.DataFrame) -> AnomalyDetector:
         """Treina o scaler e o IsolationForest sobre as features fornecidas.
 
         Args:
@@ -103,7 +108,9 @@ class AnomalyDetector:
 
         X_clean = self._select_and_validate(X)
         if len(X_clean) == 0:
-            logger.warning("AnomalyDetector.fit: DataFrame vazio — modelo não treinado.")
+            logger.warning(
+                "AnomalyDetector.fit: DataFrame vazio — modelo não treinado."
+            )
             return self
 
         self._scaler = StandardScaler()
@@ -144,7 +151,9 @@ class AnomalyDetector:
             de anomalia dentro do batch de predição.
         """
         if not self._is_fitted or self._model is None or self._scaler is None:
-            logger.warning("AnomalyDetector.predict: modelo não treinado — retornando zeros.")
+            logger.warning(
+                "AnomalyDetector.predict: modelo não treinado — retornando zeros."
+            )
             return np.zeros(len(X), dtype=np.float64)
 
         X_clean = self._select_and_validate(X)
@@ -199,7 +208,7 @@ class AnomalyDetector:
         return {"model": model_path, "scaler": scaler_path}
 
     @classmethod
-    def load(cls, directory: str | Path, version: str | None = None) -> "AnomalyDetector":
+    def load(cls, directory: str | Path, version: str | None = None) -> AnomalyDetector:
         """Carrega model e scaler de arquivos .joblib.
 
         Args:
@@ -238,7 +247,9 @@ class AnomalyDetector:
         """Seleciona colunas de features e preenche ausentes com 0."""
         missing = [c for c in FEATURE_COLUMNS if c not in X.columns]
         if missing:
-            logger.warning("Colunas ausentes no DataFrame: %s — preenchendo com 0.", missing)
+            logger.warning(
+                "Colunas ausentes no DataFrame: %s — preenchendo com 0.", missing
+            )
         result = X.copy()
         for col in missing:
             result[col] = 0.0

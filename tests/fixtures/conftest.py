@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import pytest
-
 
 # ── Eventos válidos ────────────────────────────────────────────────────────
 
@@ -89,7 +86,7 @@ def batch_with_invalid() -> list[dict]:
     """Batch com um registro sem campos obrigatórios."""
     return [
         make_auth_event(event_id="evt-001"),
-        {"event_id": "evt-bad"},   # falta timestamp, source_ip, event_type, status
+        {"event_id": "evt-bad"},  # falta timestamp, source_ip, event_type, status
         make_http_event(event_id="evt-003"),
     ]
 

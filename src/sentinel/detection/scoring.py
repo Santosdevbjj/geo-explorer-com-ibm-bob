@@ -14,7 +14,6 @@ from sentinel.config import settings
 from sentinel.detection.rules import RuleMatch
 from sentinel.schemas import Alert, AlertCategory, AlertPriority
 
-
 # ── Mapeamento regra → categoria ───────────────────────────────────────────
 
 _RULE_TO_CATEGORY: dict[str, AlertCategory] = {

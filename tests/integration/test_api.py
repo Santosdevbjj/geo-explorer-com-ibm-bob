@@ -8,10 +8,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-import pytest
-from fastapi.testclient import TestClient
+from datetime import UTC
 
+import pytest
 from api.index import app
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
@@ -36,9 +37,9 @@ def _valid_event(event_id: str = "evt-001", status: str = "failure") -> dict:
 
 def _brute_force_batch(n: int = 10, ip: str = "10.10.10.10") -> list[dict]:
     """Gera rajada de auth failures para disparar BruteForceRule."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    base = datetime(2025, 1, 15, 14, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 1, 15, 14, 0, 0, tzinfo=UTC)
     return [
         {
             "event_id": f"bf-{i:03d}",
@@ -155,7 +156,9 @@ class TestDetect:
 
     def test_invalid_batch_with_validate_returns_422(self) -> None:
         bad_event = {"event_id": "bad-detect"}
-        resp = client.post("/detect", json={"events": [bad_event], "validate_first": True})
+        resp = client.post(
+            "/detect", json={"events": [bad_event], "validate_first": True}
+        )
         assert resp.status_code == 422
 
     def test_empty_events_rejected(self) -> None:
@@ -209,7 +212,12 @@ class TestAnalyzeEndpoints:
     def test_analyze_batch_valid_events(self) -> None:
         response = client.post(
             "/analyze/batch",
-            json={"events": [_valid_event("batch-1", "success"), _valid_event("batch-2", "failure")]},
+            json={
+                "events": [
+                    _valid_event("batch-1", "success"),
+                    _valid_event("batch-2", "failure"),
+                ]
+            },
         )
         assert response.status_code == 200
         assert "alerts_generated" in response.json()
@@ -222,19 +230,30 @@ class TestAnalyzeEndpoints:
         response = client.post("/analyze/batch", json={"events": []})
         assert response.status_code == 422
 
-    def test_analyze_batch_enforces_maximum(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_analyze_batch_enforces_maximum(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from sentinel.config import settings
 
         monkeypatch.setattr(settings, "max_batch_size", 1)
         response = client.post(
             "/analyze/batch",
-            json={"events": [_valid_event("max-1", "success"), _valid_event("max-2", "success")]},
+            json={
+                "events": [
+                    _valid_event("max-1", "success"),
+                    _valid_event("max-2", "success"),
+                ]
+            },
         )
         assert response.status_code == 422
 
-    def test_protected_analyze_requires_key_when_configured(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_protected_analyze_requires_key_when_configured(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from sentinel.config import settings
 
         monkeypatch.setattr(settings, "api_secret_key", "test-only-key")
-        response = client.post("/analyze", json=_valid_event("auth-required", "success"))
+        response = client.post(
+            "/analyze", json=_valid_event("auth-required", "success")
+        )
         assert response.status_code == 401

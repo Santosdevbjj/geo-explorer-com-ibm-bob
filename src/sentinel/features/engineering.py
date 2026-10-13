@@ -59,7 +59,6 @@ import pandas as pd
 
 from sentinel.schemas import EventStatus, EventType, LogEvent
 
-
 # ── Padrões de user-agent de scanner ──────────────────────────────────────────
 # Lista conservadora: apenas ferramentas explicitamente identificadas como scanners.
 # Não inclui user-agents ambíguos como "python-requests" ou "curl" que têm uso legítimo.
@@ -70,12 +69,25 @@ _SCANNER_UA_PATTERN = re.compile(
 )
 
 # Paths típicos de varredura automatizada
-_SCAN_PATHS: frozenset[str] = frozenset({
-    "/admin", "/admin/panel", "/wp-admin", "/wp-login.php",
-    "/phpmyadmin", "/.env", "/.git/config", "/actuator",
-    "/actuator/env", "/console", "/manager/html", "/server-status",
-    "/.htaccess", "/config.php", "/backup.zip",
-})
+_SCAN_PATHS: frozenset[str] = frozenset(
+    {
+        "/admin",
+        "/admin/panel",
+        "/wp-admin",
+        "/wp-login.php",
+        "/phpmyadmin",
+        "/.env",
+        "/.git/config",
+        "/actuator",
+        "/actuator/env",
+        "/console",
+        "/manager/html",
+        "/server-status",
+        "/.htaccess",
+        "/config.php",
+        "/backup.zip",
+    }
+)
 
 
 # ── Schema esperado de saída ───────────────────────────────────────────────────
@@ -136,8 +148,7 @@ def _compute_inter_event_stats(timestamps_ms: list[float]) -> tuple[float, float
     if len(timestamps_ms) < 2:
         return 0.0, 0.0
     diffs = [
-        timestamps_ms[i + 1] - timestamps_ms[i]
-        for i in range(len(timestamps_ms) - 1)
+        timestamps_ms[i + 1] - timestamps_ms[i] for i in range(len(timestamps_ms) - 1)
     ]
     return float(np.mean(diffs)), float(min(diffs))
 
@@ -177,7 +188,9 @@ def extract_features(
             "status": e.status.value,
             "request_path": e.request_path,
             "user_agent": e.user_agent,
-            "payload_size_bytes": e.payload_size_bytes if e.payload_size_bytes is not None else 0,
+            "payload_size_bytes": e.payload_size_bytes
+            if e.payload_size_bytes is not None
+            else 0,
         }
         for e in events
     ]
@@ -193,9 +206,11 @@ def extract_features(
         timestamps = group["timestamp"].tolist()
         ts_ms = [t.timestamp() * 1000 for t in timestamps]
 
-        for i, anchor_ts in enumerate(timestamps):
+        for _i, anchor_ts in enumerate(timestamps):
             window_end = anchor_ts + window
-            mask = (group["timestamp"] >= anchor_ts) & (group["timestamp"] <= window_end)
+            mask = (group["timestamp"] >= anchor_ts) & (
+                group["timestamp"] <= window_end
+            )
             wdf = group[mask]
 
             n_total = len(wdf)
@@ -218,9 +233,9 @@ def extract_features(
             )
 
             # ── Falhas ────────────────────────────────────────────────────────
-            is_failed = wdf["status"].isin([
-                EventStatus.FAILURE.value, EventStatus.BLOCKED.value
-            ])
+            is_failed = wdf["status"].isin(
+                [EventStatus.FAILURE.value, EventStatus.BLOCKED.value]
+            )
             is_timeout = wdf["status"] == EventStatus.TIMEOUT.value
             error_count = int(is_failed.sum())
             failure_ratio = error_count / n_total
@@ -232,37 +247,47 @@ def extract_features(
             payload_size_std = float(payload.std(ddof=0)) if n_total > 1 else 0.0
 
             # ── Temporal ─────────────────────────────────────────────────────
-            window_ts_ms = [ts_ms[j] for j, t in enumerate(timestamps) if anchor_ts <= t <= window_end]
-            inter_mean_ms, inter_min_ms = _compute_inter_event_stats(sorted(window_ts_ms))
+            window_ts_ms = [
+                ts_ms[j]
+                for j, t in enumerate(timestamps)
+                if anchor_ts <= t <= window_end
+            ]
+            inter_mean_ms, inter_min_ms = _compute_inter_event_stats(
+                sorted(window_ts_ms)
+            )
 
             # ── User-agent ────────────────────────────────────────────────────
             n_scanner = int(wdf["user_agent"].apply(_is_scanner_agent).sum())
             scanner_agent_ratio = n_scanner / n_total
 
-            feature_rows.append({
-                "source_ip": ip,
-                "window_start": anchor_ts,
-                "auth_failure_rate": auth_failure_rate,
-                "auth_failure_count": float(auth_failure_count),
-                "request_count": float(request_count),
-                "unique_paths": float(unique_paths),
-                "req_per_second": req_per_second,
-                "scan_path_hits": float(scan_path_hits),
-                "failure_ratio": failure_ratio,
-                "error_count": float(error_count),
-                "timeout_ratio": timeout_ratio,
-                "payload_size_mean": payload_size_mean,
-                "payload_size_std": payload_size_std,
-                "inter_event_mean_ms": inter_mean_ms,
-                "inter_event_min_ms": inter_min_ms,
-                "scanner_agent_ratio": scanner_agent_ratio,
-            })
+            feature_rows.append(
+                {
+                    "source_ip": ip,
+                    "window_start": anchor_ts,
+                    "auth_failure_rate": auth_failure_rate,
+                    "auth_failure_count": float(auth_failure_count),
+                    "request_count": float(request_count),
+                    "unique_paths": float(unique_paths),
+                    "req_per_second": req_per_second,
+                    "scan_path_hits": float(scan_path_hits),
+                    "failure_ratio": failure_ratio,
+                    "error_count": float(error_count),
+                    "timeout_ratio": timeout_ratio,
+                    "payload_size_mean": payload_size_mean,
+                    "payload_size_std": payload_size_std,
+                    "inter_event_mean_ms": inter_mean_ms,
+                    "inter_event_min_ms": inter_min_ms,
+                    "scanner_agent_ratio": scanner_agent_ratio,
+                }
+            )
 
     if not feature_rows:
         return _empty_features_df()
 
     result = pd.DataFrame(feature_rows)
-    result = result.drop_duplicates(subset=["source_ip", "window_start"]).reset_index(drop=True)
+    result = result.drop_duplicates(subset=["source_ip", "window_start"]).reset_index(
+        drop=True
+    )
     # Garante ordem canônica de colunas
     return result[FEATURE_COLUMNS]
 
@@ -295,7 +320,9 @@ def compute_volume_stats(df_raw: pd.DataFrame) -> dict:
     """
     total = len(df_raw)
     unique_ips = df_raw["source_ip"].nunique() if "source_ip" in df_raw.columns else 0
-    unique_types = df_raw["event_type"].nunique() if "event_type" in df_raw.columns else 0
+    unique_types = (
+        df_raw["event_type"].nunique() if "event_type" in df_raw.columns else 0
+    )
 
     # Duplicatas de event_id
     dup_count = 0
@@ -329,7 +356,9 @@ def compute_volume_stats(df_raw: pd.DataFrame) -> dict:
     }
 
 
-def compute_request_frequency(df_raw: pd.DataFrame, window_minutes: int = 5) -> pd.DataFrame:
+def compute_request_frequency(
+    df_raw: pd.DataFrame, window_minutes: int = 5
+) -> pd.DataFrame:
     """Calcula frequência de requisições por IP em janelas fixas de tempo.
 
     Usa apenas event_type='http_request' e source_ip.
@@ -407,7 +436,9 @@ def compute_endpoint_diversity(df_raw: pd.DataFrame, top_n: int = 20) -> pd.Data
     return counts
 
 
-def compute_temporal_repetition(df_raw: pd.DataFrame, window_minutes: int = 1) -> pd.DataFrame:
+def compute_temporal_repetition(
+    df_raw: pd.DataFrame, window_minutes: int = 1
+) -> pd.DataFrame:
     """Detecta IPs com padrão de repetição temporal intensa.
 
     Retorna IPs que enviaram eventos em múltiplas janelas de window_minutes,

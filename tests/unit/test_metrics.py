@@ -20,14 +20,11 @@ import pytest
 
 from sentinel.evaluation.metrics import (
     ComparisonReport,
-    ConfusionMatrix,
     MetricsReport,
-    PerClassMetrics,
     compare_detectors,
     compute_metrics,
     compute_pr_auc,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -99,7 +96,10 @@ class TestComputeMetricsBasic:
         report = compute_metrics(np.array([0, 1]), np.array([0, 1]))
         assert len(report.disclaimer) > 0
         # Garante que a ressalva sobre probabilidade está presente
-        assert "probabilidade" in report.disclaimer.lower() or "calibr" in report.disclaimer.lower()
+        assert (
+            "probabilidade" in report.disclaimer.lower()
+            or "calibr" in report.disclaimer.lower()
+        )
 
     def test_no_accuracy_field(self) -> None:
         """MetricsReport não deve ter campo accuracy — nunca reportado isoladamente."""
@@ -185,8 +185,12 @@ class TestPerClassMetrics:
         report = compute_metrics(y_true, y_pred)
         anomaly_pc = next(pc for pc in report.per_class if pc.label == "anomaly")
         if anomaly_pc.precision is not None and anomaly_pc.recall is not None:
-            expected_f1 = (2 * anomaly_pc.precision * anomaly_pc.recall
-                          / (anomaly_pc.precision + anomaly_pc.recall))
+            expected_f1 = (
+                2
+                * anomaly_pc.precision
+                * anomaly_pc.recall
+                / (anomaly_pc.precision + anomaly_pc.recall)
+            )
             assert anomaly_pc.f1 == pytest.approx(expected_f1, abs=1e-9)
 
 
@@ -296,7 +300,9 @@ class TestCompareDetectors:
         baseline = _perfect_report("perfect")
         challenger = _zero_report("zero")
         result = compare_detectors(baseline, challenger)
-        assert "NÃO supera" in result.analysis or "não supera" in result.analysis.lower()
+        assert (
+            "NÃO supera" in result.analysis or "não supera" in result.analysis.lower()
+        )
 
     def test_analysis_documents_improvement(self) -> None:
         baseline = _zero_report("zero")
@@ -307,7 +313,7 @@ class TestCompareDetectors:
     def test_delta_recall_correct(self) -> None:
         """delta_recall deve ser recall(challenger) - recall(baseline) para anomaly."""
         y_true = np.array([0, 0, 1, 1, 0, 0, 1, 1])
-        y_pred_base = np.array([0, 0, 1, 0, 0, 0, 1, 0])   # recall anomaly = 0.5
+        y_pred_base = np.array([0, 0, 1, 0, 0, 0, 1, 0])  # recall anomaly = 0.5
         y_pred_chall = np.array([0, 0, 1, 1, 0, 0, 1, 1])  # recall anomaly = 1.0
         base = compute_metrics(y_true, y_pred_base, "base")
         chall = compute_metrics(y_true, y_pred_chall, "chall")
@@ -318,9 +324,9 @@ class TestCompareDetectors:
     def test_delta_fpr_correct(self) -> None:
         """delta_fpr negativo indica challenger tem menos FPs (melhor)."""
         y_true = np.array([0, 0, 0, 0, 1, 1])
-        y_pred_base  = np.array([1, 1, 0, 0, 1, 1])  # FPR = 2/4 = 0.5
+        y_pred_base = np.array([1, 1, 0, 0, 1, 1])  # FPR = 2/4 = 0.5
         y_pred_chall = np.array([0, 0, 0, 0, 1, 1])  # FPR = 0
-        base  = compute_metrics(y_true, y_pred_base,  "base")
+        base = compute_metrics(y_true, y_pred_base, "base")
         chall = compute_metrics(y_true, y_pred_chall, "chall")
         result = compare_detectors(base, chall)
         assert result.delta_fpr is not None
@@ -337,7 +343,10 @@ class TestCompareDetectors:
     def test_analysis_always_contains_warning(self) -> None:
         """Toda análise deve conter aviso sobre dados sintéticos."""
         result = compare_detectors(_zero_report(), _perfect_report())
-        assert "sintéticos" in result.analysis.lower() or "não generalizam" in result.analysis.lower()
+        assert (
+            "sintéticos" in result.analysis.lower()
+            or "não generalizam" in result.analysis.lower()
+        )
 
 
 # ── Contagens e n_samples ─────────────────────────────────────────────────

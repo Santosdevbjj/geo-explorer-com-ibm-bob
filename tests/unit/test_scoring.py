@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from sentinel.detection.rules import BruteForceRule, InjectionRule, RuleMatch
+from sentinel.detection.rules import BruteForceRule, RuleMatch
 from sentinel.detection.scoring import (
     _compute_score,
     _determine_category,
@@ -24,7 +24,6 @@ from sentinel.schemas import (
     Signal,
     SignalSource,
 )
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -48,16 +47,18 @@ def _make_match(
 
 
 def _make_auth_events(n: int = 5, ip: str = "10.0.0.1") -> list[LogEvent]:
-    base = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 1, 15, 12, 0, 0, tzinfo=UTC)
     return [
-        LogEvent.model_validate({
-            "event_id": f"bf-{i}",
-            "timestamp": (base + timedelta(seconds=i * 10)).isoformat(),
-            "source_ip": ip,
-            "event_type": "auth_attempt",
-            "status": "failure",
-            "metadata": {},
-        })
+        LogEvent.model_validate(
+            {
+                "event_id": f"bf-{i}",
+                "timestamp": (base + timedelta(seconds=i * 10)).isoformat(),
+                "source_ip": ip,
+                "event_type": "auth_attempt",
+                "status": "failure",
+                "metadata": {},
+            }
+        )
         for i in range(n)
     ]
 
@@ -78,7 +79,9 @@ class TestComputeScore:
     def test_diversity_boost_two_categories(self) -> None:
         """Dois tipos de regra distintos devem ter boost > 0."""
         m1 = _make_match(rule_name="brute_force", contribution=0.5)
-        m2 = _make_match(rule_name="injection_attempt", contribution=0.5, signal_name="sql")
+        m2 = _make_match(
+            rule_name="injection_attempt", contribution=0.5, signal_name="sql"
+        )
         score_single = _compute_score([m1])
         score_both = _compute_score([m1, m2])
         assert score_both > score_single
@@ -95,8 +98,7 @@ class TestComputeScore:
     def test_diversity_boost_capped_at_0_20(self) -> None:
         """Boost máximo de 0.20 independente do número de categorias."""
         matches = [
-            _make_match(rule_name=f"rule_{i}", contribution=0.5)
-            for i in range(10)
+            _make_match(rule_name=f"rule_{i}", contribution=0.5) for i in range(10)
         ]
         score = _compute_score(matches)
         # base=0.5, boost máximo=0.20 → máximo esperado = 0.70
@@ -144,17 +146,23 @@ class TestDetermineCategory:
         assert _determine_category([match]) == AlertCategory.BRUTE_FORCE
 
     def test_traffic_spike_match(self) -> None:
-        match = _make_match(rule_name="traffic_spike", contribution=0.6, signal_name="high_volume")
+        match = _make_match(
+            rule_name="traffic_spike", contribution=0.6, signal_name="high_volume"
+        )
         assert _determine_category([match]) == AlertCategory.TRAFFIC_SPIKE
 
     def test_injection_match(self) -> None:
-        match = _make_match(rule_name="injection_attempt", contribution=0.9, signal_name="sql")
+        match = _make_match(
+            rule_name="injection_attempt", contribution=0.9, signal_name="sql"
+        )
         assert _determine_category([match]) == AlertCategory.INJECTION_ATTEMPT
 
     def test_dominant_category_wins(self) -> None:
         """Quando dois matches, a categoria com maior contribuição vence."""
         low = _make_match(rule_name="brute_force", contribution=0.3)
-        high = _make_match(rule_name="injection_attempt", contribution=0.9, signal_name="sql")
+        high = _make_match(
+            rule_name="injection_attempt", contribution=0.9, signal_name="sql"
+        )
         assert _determine_category([low, high]) == AlertCategory.INJECTION_ATTEMPT
 
     def test_unknown_rule_name_returns_unknown(self) -> None:
@@ -207,7 +215,10 @@ class TestScoreMatches:
         assert len(alert.limitations) > 0
 
     def test_alert_score_between_0_and_1(self) -> None:
-        matches = [_make_match(contribution=0.9), _make_match(contribution=0.8, rule_name="traffic_spike")]
+        matches = [
+            _make_match(contribution=0.9),
+            _make_match(contribution=0.8, rule_name="traffic_spike"),
+        ]
         with patch("sentinel.detection.scoring.settings") as mock_settings:
             mock_settings.alert_score_threshold = 0.1
             mock_settings.rule_min_attempts = 5
@@ -224,7 +235,10 @@ class TestScoreMatches:
             alert = score_matches([match])
         assert alert is not None
         # O texto de limitações deve mencionar que não é probabilidade
-        assert "probabilidade" in alert.limitations.lower() or "calibra" in alert.limitations.lower()
+        assert (
+            "probabilidade" in alert.limitations.lower()
+            or "calibra" in alert.limitations.lower()
+        )
 
     def test_model_version_default(self) -> None:
         match = _make_match(contribution=0.9)

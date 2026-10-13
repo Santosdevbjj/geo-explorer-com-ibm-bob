@@ -28,7 +28,7 @@ import hashlib
 import json
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -73,17 +73,41 @@ def main() -> None:
     )
     parser.add_argument("--input", default="data/synthetic/events.jsonl")
     parser.add_argument("--output-dir", default="models")
-    parser.add_argument("--version", default=None, help="Versão do modelo (padrão: MODEL_VERSION do .env)")
-    parser.add_argument("--test-split", type=float, default=0.20,
-                        help="Proporção temporal de teste (padrão: 0.20)")
-    parser.add_argument("--contamination", type=float, default=None,
-                        help="Proporção de anomalias estimada para IsolationForest (padrão: MODEL_CONTAMINATION)")
-    parser.add_argument("--n-estimators", type=int, default=None,
-                        help="Número de árvores (padrão: MODEL_N_ESTIMATORS)")
-    parser.add_argument("--seed", type=int, default=None,
-                        help="Seed para reprodutibilidade (padrão: MODEL_RANDOM_STATE)")
-    parser.add_argument("--window-seconds", type=int, default=300,
-                        help="Janela de features em segundos (padrão: 300)")
+    parser.add_argument(
+        "--version",
+        default=None,
+        help="Versão do modelo (padrão: MODEL_VERSION do .env)",
+    )
+    parser.add_argument(
+        "--test-split",
+        type=float,
+        default=0.20,
+        help="Proporção temporal de teste (padrão: 0.20)",
+    )
+    parser.add_argument(
+        "--contamination",
+        type=float,
+        default=None,
+        help="Proporção de anomalias estimada para IsolationForest (padrão: MODEL_CONTAMINATION)",
+    )
+    parser.add_argument(
+        "--n-estimators",
+        type=int,
+        default=None,
+        help="Número de árvores (padrão: MODEL_N_ESTIMATORS)",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Seed para reprodutibilidade (padrão: MODEL_RANDOM_STATE)",
+    )
+    parser.add_argument(
+        "--window-seconds",
+        type=int,
+        default=300,
+        help="Janela de features em segundos (padrão: 300)",
+    )
     args = parser.parse_args()
 
     # ── Importações tardias ────────────────────────────────────────────────
@@ -94,6 +118,8 @@ def main() -> None:
     from sentinel.detection.model import FEATURE_COLUMNS, AnomalyDetector
     from sentinel.features.engineering import (
         FEATURE_COLUMNS as ENG_FEATURE_COLUMNS,
+    )
+    from sentinel.features.engineering import (
         extract_features,
     )
     from sentinel.schemas import LogEvent
@@ -142,7 +168,9 @@ def main() -> None:
     logger.info("Eventos válidos para treino/teste: %d", len(valid_events))
 
     if len(valid_events) < 50:
-        logger.error("Dados insuficientes (mínimo: 50). Encontrado: %d", len(valid_events))
+        logger.error(
+            "Dados insuficientes (mínimo: 50). Encontrado: %d", len(valid_events)
+        )
         sys.exit(1)
 
     # ── Divisão temporal treino/teste ─────────────────────────────────────
@@ -153,8 +181,10 @@ def main() -> None:
     test_events = valid_events_sorted[-n_test:]
     logger.info(
         "Divisão temporal: %d treino / %d teste (%.0f%% / %.0f%%)",
-        len(train_events), len(test_events),
-        (1 - args.test_split) * 100, args.test_split * 100,
+        len(train_events),
+        len(test_events),
+        (1 - args.test_split) * 100,
+        args.test_split * 100,
     )
 
     if len(train_events) < 30:
@@ -166,7 +196,8 @@ def main() -> None:
     features_train = extract_features(train_events, window_seconds=args.window_seconds)
     logger.info(
         "Features de treino: %d linhas × %d features",
-        len(features_train), len(FEATURE_COLUMNS),
+        len(features_train),
+        len(FEATURE_COLUMNS),
     )
 
     if len(features_train) == 0:
@@ -186,7 +217,9 @@ def main() -> None:
     # ── Treino ─────────────────────────────────────────────────────────────
     logger.info(
         "Treinando AnomalyDetector (contamination=%.3f, n_estimators=%d, seed=%d)...",
-        contamination, n_estimators, random_state,
+        contamination,
+        n_estimators,
+        random_state,
     )
     detector = AnomalyDetector(
         contamination=contamination,
@@ -209,6 +242,7 @@ def main() -> None:
 
     # ── Dependências e versões ─────────────────────────────────────────────
     import importlib
+
     dep_versions: dict[str, str] = {}
     for pkg in ("numpy", "pandas", "sklearn", "joblib", "pydantic"):
         try:
@@ -219,7 +253,7 @@ def main() -> None:
 
     # ── Metadados completos do treino ─────────────────────────────────────
     metadata: dict = {
-        "trained_at": datetime.now(timezone.utc).isoformat(),
+        "trained_at": datetime.now(UTC).isoformat(),
         "model_version": settings.model_version,
         "algorithm": "IsolationForest + StandardScaler",
         # Configuração
@@ -263,9 +297,13 @@ def main() -> None:
 
     logger.info(
         "Treino concluído — versão %s | %d features | dataset SHA-256: %s...",
-        settings.model_version, len(FEATURE_COLUMNS), dataset_hash[:12],
+        settings.model_version,
+        len(FEATURE_COLUMNS),
+        dataset_hash[:12],
     )
-    logger.info("Execute: python scripts/evaluate_model.py --model-dir %s", args.output_dir)
+    logger.info(
+        "Execute: python scripts/evaluate_model.py --model-dir %s", args.output_dir
+    )
 
 
 if __name__ == "__main__":

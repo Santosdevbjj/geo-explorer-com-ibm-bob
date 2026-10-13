@@ -77,8 +77,12 @@ def print_report(report) -> None:  # type: ignore[no-untyped-def]
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Validador de batch de eventos do Sentinel")
-    parser.add_argument("--input", required=True, help="Caminho do arquivo JSONL a validar")
+    parser = argparse.ArgumentParser(
+        description="Validador de batch de eventos do Sentinel"
+    )
+    parser.add_argument(
+        "--input", required=True, help="Caminho do arquivo JSONL a validar"
+    )
     parser.add_argument(
         "--strict",
         action="store_true",
@@ -108,7 +112,9 @@ def main() -> None:
         sys.exit(1)
 
     if args.strict and report.duplicate_ids:
-        logger.warning("Modo --strict: %d duplicata(s) encontrada(s)", len(report.duplicate_ids))
+        logger.warning(
+            "Modo --strict: %d duplicata(s) encontrada(s)", len(report.duplicate_ids)
+        )
         sys.exit(1)
 
 

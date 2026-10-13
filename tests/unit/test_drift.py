@@ -4,21 +4,18 @@ from __future__ import annotations
 
 import sys
 import tempfile
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from sentinel.monitoring.drift import (
     DriftReport,
-    compute_psi,
     check_drift,
+    compute_psi,
 )
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -32,18 +29,22 @@ def _make_features_df(
     rng = np.random.default_rng(seed)
     if anomalous:
         # Distribuição muito diferente da normal → drift esperado
-        return pd.DataFrame({
-            "auth_failure_rate": rng.uniform(0.7, 1.0, n),
-            "request_count": rng.integers(200, 500, n).astype(float),
-            "failure_ratio": rng.uniform(0.6, 1.0, n),
-            "payload_size_mean": rng.uniform(5000.0, 10000.0, n),
-        })
-    return pd.DataFrame({
-        "auth_failure_rate": rng.uniform(0.0, 0.2, n),
-        "request_count": rng.integers(0, 30, n).astype(float),
-        "failure_ratio": rng.uniform(0.0, 0.2, n),
-        "payload_size_mean": rng.uniform(100.0, 1000.0, n),
-    })
+        return pd.DataFrame(
+            {
+                "auth_failure_rate": rng.uniform(0.7, 1.0, n),
+                "request_count": rng.integers(200, 500, n).astype(float),
+                "failure_ratio": rng.uniform(0.6, 1.0, n),
+                "payload_size_mean": rng.uniform(5000.0, 10000.0, n),
+            }
+        )
+    return pd.DataFrame(
+        {
+            "auth_failure_rate": rng.uniform(0.0, 0.2, n),
+            "request_count": rng.integers(0, 30, n).astype(float),
+            "failure_ratio": rng.uniform(0.0, 0.2, n),
+            "payload_size_mean": rng.uniform(100.0, 1000.0, n),
+        }
+    )
 
 
 def _save_reference(df: pd.DataFrame) -> Path:
@@ -98,7 +99,7 @@ class TestCheckDrift:
         assert report.n_reference_samples == 0
 
     def test_same_distribution_no_drift(self) -> None:
-        rng = np.random.default_rng(42)
+        np.random.default_rng(42)
         ref = _make_features_df(n=200, seed=42)
         cur = _make_features_df(n=100, seed=43)  # mesma distribuição, seed diferente
         ref_path = _save_reference(ref)

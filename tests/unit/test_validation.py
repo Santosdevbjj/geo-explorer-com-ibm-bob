@@ -8,14 +8,12 @@ from pathlib import Path
 # Garante que src/ está no path quando rodado diretamente
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-import pytest
 
-from sentinel.data.validation import validate_batch
 from tests.fixtures.conftest import (
     make_auth_event,
-    make_http_event,
 )
 
+from sentinel.data.validation import validate_batch
 
 # ── Batch totalmente válido ────────────────────────────────────────────────
 
@@ -51,7 +49,9 @@ class TestDuplicates:
         report = validate_batch(batch_with_duplicate)
         assert "evt-dup" in report.duplicate_ids
 
-    def test_passed_is_false_with_duplicate(self, batch_with_duplicate: list[dict]) -> None:
+    def test_passed_is_false_with_duplicate(
+        self, batch_with_duplicate: list[dict]
+    ) -> None:
         report = validate_batch(batch_with_duplicate)
         assert report.passed is False
 
@@ -66,7 +66,9 @@ class TestDuplicates:
 
 
 class TestInvalidRecords:
-    def test_detects_missing_required_fields(self, batch_with_invalid: list[dict]) -> None:
+    def test_detects_missing_required_fields(
+        self, batch_with_invalid: list[dict]
+    ) -> None:
         report = validate_batch(batch_with_invalid)
         assert report.invalid_records >= 1
 
@@ -86,7 +88,9 @@ class TestInvalidRecords:
         # 3 registros no batch; 1 é inválido → 2 válidos
         assert report.valid_records == 2
 
-    def test_missing_field_tracked_in_summary(self, batch_with_invalid: list[dict]) -> None:
+    def test_missing_field_tracked_in_summary(
+        self, batch_with_invalid: list[dict]
+    ) -> None:
         report = validate_batch(batch_with_invalid)
         assert len(report.missing_fields_summary) >= 1
 

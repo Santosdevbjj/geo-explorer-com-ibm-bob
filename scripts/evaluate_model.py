@@ -24,8 +24,10 @@ import argparse
 import json
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -46,23 +48,32 @@ def main() -> None:
     parser.add_argument("--input", default="data/synthetic/events.jsonl")
     parser.add_argument("--model-dir", default="models")
     parser.add_argument(
-        "--test-split", type=float, default=0.20,
+        "--test-split",
+        type=float,
+        default=0.20,
         help="Proporção temporal de teste (deve ser igual ao treino, padrão: 0.20)",
     )
     parser.add_argument(
-        "--val-split", type=float, default=0.10,
+        "--val-split",
+        type=float,
+        default=0.10,
         help="Proporção de validação (do treino) para ajuste de threshold (padrão: 0.10)",
     )
     parser.add_argument(
-        "--threshold", type=float, default=None,
+        "--threshold",
+        type=float,
+        default=None,
         help="Threshold fixo para binarização do score. Se omitido, ajustado em validação.",
     )
     parser.add_argument(
-        "--window-seconds", type=int, default=300,
+        "--window-seconds",
+        type=int,
+        default=300,
         help="Janela de features (deve ser igual ao treino, padrão: 300)",
     )
     parser.add_argument(
-        "--no-model", action="store_true",
+        "--no-model",
+        action="store_true",
         help="Avalia apenas as baselines sem tentar carregar o modelo ML",
     )
     args = parser.parse_args()
@@ -78,7 +89,6 @@ def main() -> None:
         MetricsReport,
         compare_detectors,
         compute_metrics,
-        compute_pr_auc,
     )
     from sentinel.features.engineering import extract_features
     from sentinel.schemas import LogEvent
@@ -115,15 +125,17 @@ def main() -> None:
     n_test = max(1, int(n_total * args.test_split))
     n_val = max(1, int((n_total - n_test) * args.val_split))
 
-    train_events = valid_events_sorted[:-(n_test + n_val)]
-    val_events   = valid_events_sorted[-(n_test + n_val):-n_test]
-    test_events  = valid_events_sorted[-n_test:]
-    val_labels   = labels_sorted[-(n_test + n_val):-n_test]
-    test_labels  = labels_sorted[-n_test:]
+    train_events = valid_events_sorted[: -(n_test + n_val)]
+    val_events = valid_events_sorted[-(n_test + n_val) : -n_test]
+    test_events = valid_events_sorted[-n_test:]
+    val_labels = labels_sorted[-(n_test + n_val) : -n_test]
+    test_labels = labels_sorted[-n_test:]
 
     logger.info(
         "Divisão temporal: %d treino / %d validação / %d teste",
-        len(train_events), len(val_events), len(test_events),
+        len(train_events),
+        len(val_events),
+        len(test_events),
     )
 
     # ── Rótulos binários (0=normal, 1=anomalia) ───────────────────────────
@@ -131,14 +143,15 @@ def main() -> None:
     def _to_binary(labels: list[str]) -> np.ndarray:
         return np.array([0 if lb == "normal" else 1 for lb in labels])
 
-    y_val  = _to_binary(val_labels)
+    y_val = _to_binary(val_labels)
     y_test = _to_binary(test_labels)
 
     n_pos_test = int(y_test.sum())
     n_neg_test = int((y_test == 0).sum())
     logger.info(
         "Teste: %d anomalias / %d normais (%.1f%% anomaly rate)",
-        n_pos_test, n_neg_test,
+        n_pos_test,
+        n_neg_test,
         100 * n_pos_test / max(len(y_test), 1),
     )
 
@@ -150,15 +163,18 @@ def main() -> None:
         )
 
     # ── Features ─────────────────────────────────────────────────────────
-    features_val  = extract_features(val_events,  window_seconds=args.window_seconds)
+    features_val = extract_features(val_events, window_seconds=args.window_seconds)
     features_test = extract_features(test_events, window_seconds=args.window_seconds)
 
     # ── Baseline 1: majority_class (prediz sempre normal) ─────────────────
     y_pred_majority = np.zeros(len(test_events), dtype=int)
-    report_majority = compute_metrics(y_test, y_pred_majority, "majority_class_baseline")
+    report_majority = compute_metrics(
+        y_test, y_pred_majority, "majority_class_baseline"
+    )
     logger.info(
         "Baseline majority_class — F1 macro: %s | FPR: %s",
-        report_majority.macro_f1, report_majority.false_positive_rate,
+        report_majority.macro_f1,
+        report_majority.false_positive_rate,
     )
 
     # ── Baseline 2: rule_based ─────────────────────────────────────────────
@@ -166,15 +182,16 @@ def main() -> None:
     detected_ids: set[str] = set()
     for match in rule_matches:
         detected_ids.update(match.matched_event_ids)
-    y_pred_rules = np.array([
-        1 if e.event_id in detected_ids else 0
-        for e in test_events
-    ])
+    y_pred_rules = np.array(
+        [1 if e.event_id in detected_ids else 0 for e in test_events]
+    )
     report_rules = compute_metrics(y_test, y_pred_rules, "rule_based_baseline")
     logger.info(
         "Baseline rule_based — F1 macro: %s | recall: %s | FPR: %s",
         report_rules.macro_f1,
-        next((pc.recall for pc in report_rules.per_class if pc.label == "anomaly"), None),
+        next(
+            (pc.recall for pc in report_rules.per_class if pc.label == "anomaly"), None
+        ),
         report_rules.false_positive_rate,
     )
 
@@ -187,53 +204,78 @@ def main() -> None:
     if not args.no_model:
         try:
             from sentinel.detection.model import AnomalyDetector
+
             detector = AnomalyDetector.load(args.model_dir)
 
             # Ajuste de threshold em VALIDAÇÃO (nunca no teste)
             if args.threshold is not None:
                 threshold_used = args.threshold
-                logger.info("Threshold fixo: %.3f (fornecido via --threshold)", threshold_used)
+                logger.info(
+                    "Threshold fixo: %.3f (fornecido via --threshold)", threshold_used
+                )
             elif len(features_val) > 0 and n_pos_test > 0:
                 scores_val = detector.predict(features_val)
                 # Alinha scores de validação com eventos de validação por source_ip
-                event_scores_val = _align_scores_to_events(val_events, features_val, scores_val)
+                event_scores_val = _align_scores_to_events(
+                    val_events, features_val, scores_val
+                )
                 # Busca threshold que maximiza F1 da classe anomaly em validação
                 threshold_used = _find_best_threshold(y_val, event_scores_val)
                 logger.info("Threshold ajustado em validação: %.3f", threshold_used)
             else:
                 threshold_used = 0.5
-                logger.info("Threshold padrão: %.3f (sem validação disponível)", threshold_used)
+                logger.info(
+                    "Threshold padrão: %.3f (sem validação disponível)", threshold_used
+                )
 
             # Predição no conjunto de TESTE
             if len(features_test) > 0:
                 scores_test = detector.predict(features_test)
-                event_scores_test = _align_scores_to_events(test_events, features_test, scores_test)
+                event_scores_test = _align_scores_to_events(
+                    test_events, features_test, scores_test
+                )
                 y_pred_model = (event_scores_test >= threshold_used).astype(int)
 
                 # PR-AUC usa scores contínuos (não binarizados)
                 report_model = compute_metrics(
-                    y_test, y_pred_model,
+                    y_test,
+                    y_pred_model,
                     f"isolation_forest_{settings.model_version}",
                     y_score=event_scores_test,
                 )
                 logger.info(
                     "IsolationForest — F1 macro: %s | recall: %s | PR-AUC: %s | FPR: %s",
                     report_model.macro_f1,
-                    next((pc.recall for pc in report_model.per_class if pc.label == "anomaly"), None),
+                    next(
+                        (
+                            pc.recall
+                            for pc in report_model.per_class
+                            if pc.label == "anomaly"
+                        ),
+                        None,
+                    ),
                     report_model.pr_auc,
                     report_model.false_positive_rate,
                 )
 
-                comparison_vs_majority = compare_detectors(report_majority, report_model)
+                comparison_vs_majority = compare_detectors(
+                    report_majority, report_model
+                )
                 comparison_vs_rules = compare_detectors(report_rules, report_model)
 
                 logger.info(
                     "Resultado vs majority: %s | vs rules: %s",
-                    "SUPERA" if comparison_vs_majority.challenger_beats_baseline else "NÃO supera",
-                    "SUPERA" if comparison_vs_rules.challenger_beats_baseline else "NÃO supera",
+                    "SUPERA"
+                    if comparison_vs_majority.challenger_beats_baseline
+                    else "NÃO supera",
+                    "SUPERA"
+                    if comparison_vs_rules.challenger_beats_baseline
+                    else "NÃO supera",
                 )
             else:
-                logger.warning("Nenhuma feature de teste disponível — modelo não avaliado.")
+                logger.warning(
+                    "Nenhuma feature de teste disponível — modelo não avaliado."
+                )
 
         except FileNotFoundError:
             logger.warning(
@@ -251,8 +293,13 @@ def main() -> None:
 
     # ── Impressão do relatório ─────────────────────────────────────────────
     _print_summary(
-        test_events, y_test, report_majority, report_rules,
-        report_model, comparison_vs_majority, comparison_vs_rules,
+        test_events,
+        y_test,
+        report_majority,
+        report_rules,
+        report_model,
+        comparison_vs_majority,
+        comparison_vs_rules,
         threshold_used,
     )
 
@@ -262,7 +309,7 @@ def main() -> None:
     report_path = reports_dir / f"evaluation_{settings.model_version}.json"
 
     full_report: dict = {
-        "evaluated_at": datetime.now(timezone.utc).isoformat(),
+        "evaluated_at": datetime.now(UTC).isoformat(),
         "input_file": str(input_path),
         "model_version": settings.model_version,
         "split": {
@@ -285,9 +332,13 @@ def main() -> None:
     }
 
     if report_model is not None:
-        full_report["detectors"]["isolation_forest"] = report_model.model_dump(mode="json")
+        full_report["detectors"]["isolation_forest"] = report_model.model_dump(
+            mode="json"
+        )
     if comparison_vs_majority is not None:
-        full_report["comparison_vs_majority"] = comparison_vs_majority.model_dump(mode="json")
+        full_report["comparison_vs_majority"] = comparison_vs_majority.model_dump(
+            mode="json"
+        )
     if comparison_vs_rules is not None:
         full_report["comparison_vs_rules"] = comparison_vs_rules.model_dump(mode="json")
 
@@ -304,7 +355,7 @@ def _align_scores_to_events(
     events: list,
     features_df,
     scores,
-) -> "np.ndarray":
+) -> np.ndarray:
     """Alinha scores por IP ao vetor de eventos.
 
     Para cada evento, usa o score máximo de qualquer janela do seu source_ip.
@@ -318,15 +369,14 @@ def _align_scores_to_events(
         score_val = float(scores[i])
         ip_to_score[ip] = max(ip_to_score.get(ip, 0.0), score_val)
 
-    return np.array([
-        ip_to_score.get(str(e.source_ip), 0.0)
-        for e in events
-    ], dtype=np.float64)
+    return np.array(
+        [ip_to_score.get(str(e.source_ip), 0.0) for e in events], dtype=np.float64
+    )
 
 
 def _find_best_threshold(
-    y_val: "np.ndarray",
-    scores_val: "np.ndarray",
+    y_val: np.ndarray,
+    scores_val: np.ndarray,
     n_thresholds: int = 20,
 ) -> float:
     """Encontra threshold que maximiza F1 da classe anomaly em VALIDAÇÃO.
@@ -389,10 +439,16 @@ def _print_summary(
     for report in [report_majority, report_rules, report_model]:
         if report is None:
             continue
-        anomaly_pc = next((pc for pc in report.per_class if pc.label == "anomaly"), None)
+        anomaly_pc = next(
+            (pc for pc in report.per_class if pc.label == "anomaly"), None
+        )
         print(f"  ── {report.detector_name}")
-        print(f"     Precision(anomaly): {_fmt(anomaly_pc.precision if anomaly_pc else None)}")
-        print(f"     Recall(anomaly)   : {_fmt(anomaly_pc.recall if anomaly_pc else None)}")
+        print(
+            f"     Precision(anomaly): {_fmt(anomaly_pc.precision if anomaly_pc else None)}"
+        )
+        print(
+            f"     Recall(anomaly)   : {_fmt(anomaly_pc.recall if anomaly_pc else None)}"
+        )
         print(f"     F1(anomaly)       : {_fmt(anomaly_pc.f1 if anomaly_pc else None)}")
         print(f"     macro_F1          : {_fmt(report.macro_f1)}")
         print(f"     FPR               : {_fmt(report.false_positive_rate)}")
@@ -402,11 +458,21 @@ def _print_summary(
         print()
 
     if comparison_vs_majority:
-        verdict = "SUPERA" if comparison_vs_majority.challenger_beats_baseline else "NÃO supera"
-        print(f"  Modelo vs majority_class baseline : {verdict} (ΔF1={_fmt(comparison_vs_majority.delta_macro_f1)})")
+        verdict = (
+            "SUPERA"
+            if comparison_vs_majority.challenger_beats_baseline
+            else "NÃO supera"
+        )
+        print(
+            f"  Modelo vs majority_class baseline : {verdict} (ΔF1={_fmt(comparison_vs_majority.delta_macro_f1)})"
+        )
     if comparison_vs_rules:
-        verdict = "SUPERA" if comparison_vs_rules.challenger_beats_baseline else "NÃO supera"
-        print(f"  Modelo vs rule_based baseline     : {verdict} (ΔF1={_fmt(comparison_vs_rules.delta_macro_f1)})")
+        verdict = (
+            "SUPERA" if comparison_vs_rules.challenger_beats_baseline else "NÃO supera"
+        )
+        print(
+            f"  Modelo vs rule_based baseline     : {verdict} (ΔF1={_fmt(comparison_vs_rules.delta_macro_f1)})"
+        )
 
     print()
     print("  AVISO: métricas sobre dados SINTÉTICOS.")

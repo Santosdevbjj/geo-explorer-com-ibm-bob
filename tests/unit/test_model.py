@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sys
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
@@ -23,6 +23,7 @@ import pytest
 _sklearn_available = False
 try:
     from sklearn.ensemble import IsolationForest  # noqa: F401
+
     _sklearn_available = True
 except (ImportError, OSError):
     pass
@@ -33,8 +34,7 @@ requires_sklearn = pytest.mark.skipif(
 )
 
 # model.py deve ser importável mesmo sem sklearn (lazy import)
-from sentinel.detection.model import FEATURE_COLUMNS, AnomalyDetector
-
+from sentinel.detection.model import FEATURE_COLUMNS, AnomalyDetector  # noqa: E402
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -42,34 +42,38 @@ from sentinel.detection.model import FEATURE_COLUMNS, AnomalyDetector
 def _make_features(n: int = 50, seed: int = 42) -> pd.DataFrame:
     """Gera um DataFrame de features sintéticas para testes."""
     rng = np.random.default_rng(seed)
-    return pd.DataFrame({
-        "source_ip": [f"10.0.0.{i % 10}" for i in range(n)],
-        "window_start": [
-            datetime(2025, 1, 15, 12, 0, tzinfo=timezone.utc) + timedelta(minutes=i)
-            for i in range(n)
-        ],
-        "auth_failure_rate": rng.uniform(0.0, 0.3, n),
-        "request_count": rng.integers(0, 50, n).astype(float),
-        "unique_paths": rng.integers(0, 10, n).astype(float),
-        "failure_ratio": rng.uniform(0.0, 0.3, n),
-        "payload_size_mean": rng.uniform(100.0, 2000.0, n),
-    })
+    return pd.DataFrame(
+        {
+            "source_ip": [f"10.0.0.{i % 10}" for i in range(n)],
+            "window_start": [
+                datetime(2025, 1, 15, 12, 0, tzinfo=UTC) + timedelta(minutes=i)
+                for i in range(n)
+            ],
+            "auth_failure_rate": rng.uniform(0.0, 0.3, n),
+            "request_count": rng.integers(0, 50, n).astype(float),
+            "unique_paths": rng.integers(0, 10, n).astype(float),
+            "failure_ratio": rng.uniform(0.0, 0.3, n),
+            "payload_size_mean": rng.uniform(100.0, 2000.0, n),
+        }
+    )
 
 
 def _make_anomalous_features(n: int = 5) -> pd.DataFrame:
     """Gera features que simulam comportamento anômalo (valores extremos)."""
-    return pd.DataFrame({
-        "source_ip": ["evil.ip"] * n,
-        "window_start": [
-            datetime(2025, 1, 15, 13, 0, tzinfo=timezone.utc) + timedelta(minutes=i)
-            for i in range(n)
-        ],
-        "auth_failure_rate": [0.95, 0.99, 1.0, 0.98, 0.97],
-        "request_count": [500.0, 800.0, 1000.0, 750.0, 900.0],
-        "unique_paths": [0.0, 1.0, 0.0, 0.0, 1.0],
-        "failure_ratio": [0.90, 0.95, 1.0, 0.92, 0.88],
-        "payload_size_mean": [8000.0, 9000.0, 10000.0, 8500.0, 9500.0],
-    })
+    return pd.DataFrame(
+        {
+            "source_ip": ["evil.ip"] * n,
+            "window_start": [
+                datetime(2025, 1, 15, 13, 0, tzinfo=UTC) + timedelta(minutes=i)
+                for i in range(n)
+            ],
+            "auth_failure_rate": [0.95, 0.99, 1.0, 0.98, 0.97],
+            "request_count": [500.0, 800.0, 1000.0, 750.0, 900.0],
+            "unique_paths": [0.0, 1.0, 0.0, 0.0, 1.0],
+            "failure_ratio": [0.90, 0.95, 1.0, 0.92, 0.88],
+            "payload_size_mean": [8000.0, 9000.0, 10000.0, 8500.0, 9500.0],
+        }
+    )
 
 
 # ── Construção e atributos ─────────────────────────────────────────────────
@@ -190,9 +194,11 @@ class TestSaveLoad:
 
     def test_save_before_fit_raises(self) -> None:
         detector = AnomalyDetector()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with pytest.raises(RuntimeError, match="não está treinado"):
-                detector.save(tmpdir)
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            pytest.raises(RuntimeError, match="não está treinado"),
+        ):
+            detector.save(tmpdir)
 
     def test_load_restores_fitted_state(self) -> None:
         detector = AnomalyDetector()
@@ -201,7 +207,7 @@ class TestSaveLoad:
         with tempfile.TemporaryDirectory() as tmpdir:
             detector.save(tmpdir)
             loaded = AnomalyDetector.load(tmpdir)
-        assert loaded.is_fitted is True
+            assert loaded.is_fitted is True
 
     def test_load_predictions_consistent(self) -> None:
         """Predições do modelo carregado devem ser iguais ao original."""
@@ -216,9 +222,8 @@ class TestSaveLoad:
         np.testing.assert_array_almost_equal(scores_original, scores_loaded)
 
     def test_load_missing_files_raises(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with pytest.raises(FileNotFoundError):
-                AnomalyDetector.load(tmpdir)
+        with tempfile.TemporaryDirectory() as tmpdir, pytest.raises(FileNotFoundError):
+            AnomalyDetector.load(tmpdir)
 
     def test_roundtrip_scores_in_range(self) -> None:
         detector = AnomalyDetector(n_estimators=20, random_state=1)

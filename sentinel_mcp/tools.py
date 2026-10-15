@@ -118,7 +118,7 @@ def get_metrics_summary() -> dict[str, Any]:
         }
     try:
         report = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return {
             "available": False,
             "message": "Relatório de avaliação indisponível ou inválido.",
@@ -171,7 +171,7 @@ def get_drift_summary() -> dict[str, Any]:
         }
     try:
         report = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return {
             "available": False,
             "message": "Relatório de drift indisponível ou inválido.",

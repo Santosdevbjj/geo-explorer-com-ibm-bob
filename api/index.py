@@ -42,7 +42,7 @@ def _enforce_event_size(events: list[dict[str, Any]]) -> None:
                     "utf-8"
                 )
             )
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Evento na posição {index} não pode ser serializado como JSON.",

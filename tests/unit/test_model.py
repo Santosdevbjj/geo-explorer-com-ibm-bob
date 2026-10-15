@@ -25,7 +25,7 @@ try:
     from sklearn.ensemble import IsolationForest  # noqa: F401
 
     _sklearn_available = True
-except (ImportError, OSError):
+except ImportError, OSError:
     pass
 
 requires_sklearn = pytest.mark.skipif(

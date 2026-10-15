@@ -139,8 +139,8 @@ jobs:
         run: pip install -e ".[dev,mcp]"
       - name: Verify official SDK and local server syntax
         run: |
-          python -c "from mcp.server.fastmcp import FastMCP; print('official MCP SDK import OK')"
-          python -c "import ast; ast.parse(open('mcp/server.py').read()); print('server syntax OK')"
+          python -c "import sys; sys.path.pop(0) if '' in sys.path else None; from mcp.server.fastmcp import FastMCP; print('official MCP SDK import OK')"
+          python -c "import ast; ast.parse(open('sentinel_mcp/server.py').read()); print('server syntax OK')"
 
   # ── Validação de build Vercel ─────────────────────────────────────────
   vercel-build:

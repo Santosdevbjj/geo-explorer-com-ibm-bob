@@ -10,7 +10,7 @@ import importlib.util
 from pathlib import Path
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from sentinel_mcp.server.fastmcp import FastMCP
 
 TOOLS_PATH = Path(__file__).with_name("tools.py")
 _spec = importlib.util.spec_from_file_location("sentinel_mcp_local_tools", TOOLS_PATH)

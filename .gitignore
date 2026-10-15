@@ -41,3 +41,4 @@ yarn-debug.log*
 yarn-error.log*
 .npm
 .eslintcache
+node_modules

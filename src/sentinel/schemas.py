@@ -1,9 +1,9 @@
 """Contratos de dados (schemas Pydantic v2) do Sentinel.
 
 Hierarquia:
-    LogEvent       → entrada do pipeline (evento de log bruto)
-    Signal         → sinal de detecção (regra ou modelo)
-    Alert          → saída do pipeline (alerta priorizado e explicável)
+    LogEvent        → entrada do pipeline (evento de log bruto)
+    Signal          → sinal de detecção (regra ou modelo)
+    Alert           → saída do pipeline (alerta priorizado e explicável)
     ValidationReport → resultado da etapa de validação de dados
 """
 

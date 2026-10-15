@@ -16,25 +16,25 @@ PRINCÍPIOS:
 
 Features por janela deslizante (source_ip × window_start):
     Grupo auth:
-        auth_failure_rate       taxa de falhas de autenticação (auth_attempt failures / total)
-        auth_failure_count      contagem absoluta de auth failures
+        auth_failure_rate      taxa de falhas de autenticação (auth_attempt failures / total)
+        auth_failure_count     contagem absoluta de auth failures
     Grupo HTTP:
-        request_count           total de http_request na janela
-        unique_paths            caminhos únicos acessados
-        req_per_second          densidade de requisições (req_count / window_seconds)
-        scan_path_hits          requisições a paths tipicamente varridos por scanners
+        request_count          total de http_request na janela
+        unique_paths           caminhos únicos acessados
+        req_per_second         densidade de requisições (req_count / window_seconds)
+        scan_path_hits         requisições a paths tipicamente varridos por scanners
     Grupo falhas:
-        failure_ratio           proporção de eventos com status failure ou blocked
-        error_count             contagem absoluta de failure + blocked
-        timeout_ratio           proporção de timeouts
+        failure_ratio          proporção de eventos com status failure ou blocked
+        error_count            contagem absoluta de failure + blocked
+        timeout_ratio          proporção de timeouts
     Grupo payload:
-        payload_size_mean       tamanho médio do payload em bytes
-        payload_size_std        desvio padrão do tamanho do payload
+        payload_size_mean      tamanho médio do payload em bytes
+        payload_size_std       desvio padrão do tamanho do payload
     Grupo temporal:
-        inter_event_mean_ms     média do intervalo entre eventos consecutivos (ms)
-        inter_event_min_ms      menor intervalo entre eventos (ms) — sinal de spike
+        inter_event_mean_ms    média do intervalo entre eventos consecutivos (ms)
+        inter_event_min_ms     menor intervalo entre eventos (ms) — sinal de spike
     Grupo user-agent:
-        scanner_agent_ratio     proporção de eventos com user-agent de scanner conhecido
+        scanner_agent_ratio    proporção de eventos com user-agent de scanner conhecido
 
 HIPÓTESES (a validar empiricamente, não afirmadas como fato):
 - Alta auth_failure_rate + baixa req_per_second pode indicar brute force lento.
@@ -199,7 +199,7 @@ def extract_features(
     df = df.sort_values("timestamp").reset_index(drop=True)
 
     window = timedelta(seconds=window_seconds)
-    feature_rows: list[dict] = []
+    feature_rows: list[dict[str, Any]] = []
 
     for ip, group in df.groupby("source_ip", sort=False):
         group = group.sort_values("timestamp").reset_index(drop=True)
@@ -303,7 +303,7 @@ def _empty_features_df() -> pd.DataFrame:
 # nunca sobre LogEvent, para independência do schema Pydantic no notebook.
 
 
-def compute_volume_stats(df_raw: pd.DataFrame) -> dict:
+def compute_volume_stats(df_raw: pd.DataFrame) -> dict[str, Any]:
     """Estatísticas de volume e completude sobre o DataFrame de eventos brutos.
 
     Args:

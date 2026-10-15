@@ -2,7 +2,7 @@
 
 Calcula precision, recall, F1, PR-AUC, matriz de confusão, falsos positivos e
 comparação com baseline determinística — tudo em numpy puro, sem depender de
-sklearn.metrics (que tem DLL bloqueada em Python 3.14 / Windows AppControl).
+sklearn.metrics (que pode ter DLL bloqueada em ambientes restritos).
 
 PRINCÍPIOS:
 - Nunca inventar métricas: se o denominador for zero, retorna None.
@@ -281,7 +281,7 @@ def compute_pr_auc(y_true: np.ndarray, y_score: np.ndarray) -> float | None:
     """Calcula a área sob a curva Precision-Recall (PR-AUC) com numpy.
 
     Usa interpolação trapezoidal sobre a curva PR ordenada por threshold decrescente.
-    Implementação em numpy puro — não depende de sklearn.metrics.
+    Implementação em numpy puro — compatível com NumPy moderno e antigo.
 
     Args:
         y_true: Array binário (0/1).
@@ -307,8 +307,6 @@ def compute_pr_auc(y_true: np.ndarray, y_score: np.ndarray) -> float | None:
     y_t_sorted = y_t[order]
 
     tp_cumsum = np.cumsum(y_t_sorted)
-    np.cumsum(1 - y_t_sorted)
-
     n = len(y_t_sorted)
     total = np.arange(1, n + 1)
 
@@ -319,8 +317,11 @@ def compute_pr_auc(y_true: np.ndarray, y_score: np.ndarray) -> float | None:
     precision_curve = np.concatenate([[1.0], precision_curve])
     recall_curve = np.concatenate([[0.0], recall_curve])
 
-    # Integração trapezoidal
-    auc: float = float(np.trapz(precision_curve, recall_curve))
+    # Integração trapezoidal compatível com NumPy moderno (trapezoid) e antigo (trapz)
+    try:
+        auc: float = float(np.trapezoid(precision_curve, recall_curve))
+    except AttributeError:
+        auc = float(np.trapz(precision_curve, recall_curve))  # type: ignore[attr-defined]
     return auc
 
 

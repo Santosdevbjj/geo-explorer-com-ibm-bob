@@ -15,7 +15,6 @@ from typing import Any
 from pydantic import ValidationError
 
 from sentinel.schemas import (
-    AlertCategory,
     FieldError,
     InvalidRecord,
     LogEvent,
@@ -112,5 +111,4 @@ def validate_batch(records: list[dict[str, Any]]) -> ValidationReport:
     return report
 
 
-# Mantém compatibilidade — utilidade para categoria de alertas futura
-__all__ = ["validate_batch", "AlertCategory"]
+__all__ = ["validate_batch"]

@@ -4,9 +4,9 @@ Esta camada NÃO contém lógica analítica.
 Toda lógica de detecção e validação está em src/sentinel/.
 
 Endpoints:
-    GET  /health           → verificação de saúde
-    POST /ingest           → valida um batch de eventos
-    POST /detect           → executa detecção e retorna alertas
+    GET  /health            → verificação de saúde
+    POST /ingest            → valida um batch de eventos
+    POST /detect            → executa detecção e retorna alertas
     GET  /alerts/{alert_id} → recupera um alerta por ID (in-memory, dev only)
 """
 
@@ -370,8 +370,6 @@ def detect(
         )
 
     # Passo 3–4: detecção, scoring (regras + modelo ML se disponível)
-    # Nesta versão, o score final do alerta é baseado em regras explícitas.
-    # O modelo existe como baseline experimental, mas ainda não está integrado ao scoring.
     matches = apply_rules(parsed_events)
     model_version = "rules-only"
     alert = score_matches(matches, model_version=model_version)
@@ -437,7 +435,7 @@ def list_alerts() -> list[Alert]:
     tags=["avaliação"],
     response_description="Último relatório de avaliação salvo em reports/",
 )
-def get_metrics() -> dict:
+def get_metrics() -> dict[str, Any]:
     """Retorna o último relatório de avaliação do modelo, se disponível.
 
     O relatório é gerado por `scripts/evaluate_model.py` e salvo em `reports/`.
@@ -453,7 +451,7 @@ def get_metrics() -> dict:
 
     report_path = _Path("reports") / f"evaluation_{_settings.model_version}.json"
 
-    evaluation: dict = {}
+    evaluation: dict[str, Any] = {}
     if report_path.exists():
         try:
             with report_path.open(encoding="utf-8") as f:

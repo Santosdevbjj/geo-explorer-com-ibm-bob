@@ -3,9 +3,9 @@
 Detecta desvio na distribuição de features usando PSI
 (Population Stability Index).
 
-PSI ≤ 0.10  → sem drift significativo
+PSI ≤ 0.10   → sem drift significativo
 PSI 0.10–0.20 → drift moderado (monitorar)
-PSI > 0.20  → drift severo (considerar retreino)
+PSI > 0.20   → drift severo (considerar retreino)
 
 Referência versionada salva em JSON: data/processed/reference_distribution.json
 Threshold configurável via: DRIFT_ALERT_THRESHOLD no .env
@@ -88,7 +88,7 @@ def compute_psi(
     if reference.size == 0 or current.size == 0:
         return 0.0
 
-    # Define bins a partir da referência
+    # Define bins a partir da referência e atual
     min_val = min(reference.min(), current.min())
     max_val = max(reference.max(), current.max())
 

@@ -4,7 +4,7 @@ Obrigado pelo interesse em contribuir com o Sentinel!
 
 ## Pré-requisitos
 
-- Python 3.12+
+- Python 3.15
 - Git configurado com e-mail e nome
 - Familiaridade com FastAPI, Pydantic e pytest
 
@@ -23,6 +23,7 @@ cp .env.example .env
 ## Fluxo de Trabalho
 
 1. Crie um branch a partir de `main`:
+
    ```bash
    git checkout -b feat/nome-da-funcionalidade
    ```
@@ -30,6 +31,7 @@ cp .env.example .env
 2. Faça as alterações seguindo as [convenções de código](#convenções-de-código).
 
 3. Rode as verificações localmente **antes** de abrir o PR:
+
    ```bash
    ruff check .
    mypy src/

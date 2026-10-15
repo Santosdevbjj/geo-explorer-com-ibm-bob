@@ -1,6 +1,9 @@
+# ── Ambiente e Credenciais ────────────────────────────────────────────────────
 .env
 .env.*
 !.env.example
+
+# ── Python ────────────────────────────────────────────────────────────────────
 .venv/
 venv/
 __pycache__/
@@ -14,6 +17,8 @@ dist/
 build/
 *.egg-info/
 .ipynb_checkpoints/
+
+# ── Dados, Modelos e Relatórios Locais ────────────────────────────────────────
 data/raw/*
 !data/raw/.gitkeep
 data/processed/*
@@ -28,17 +33,18 @@ reports/*
 *.csv
 *.jsonl
 
-# ── Node.js / Frontend ────────────────────────────────────────────────────────
-frontend/node_modules/
-frontend/.next/
-frontend/out/
-frontend/dist/
-frontend/build/
+# ── Node.js / Frontend / Vercel ───────────────────────────────────────────────
+node_modules/
+.next/
+out/
+dist/
+build/
+.vercel/
 .pnp
 .pnp.js
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 .npm
 .eslintcache
-node_modules

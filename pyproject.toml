@@ -5,17 +5,17 @@ description = "Intelligent DevSecOps Sentinel — pipeline analítico de seguran
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Sergio Santos", email = "santossergiorealbjj@outlook.com" }]
-# Python 3.14 confirmado localmente (cpython-314 em __pycache__).
-# Mantém >=3.12 para compatibilidade de CI no GitHub Actions até
-# setup-python@v5 publicar imagem oficial 3.14.
-requires-python = ">=3.12"
+# Python 3.15 confirmado localmente (cpython-315 em __pycache__).
+# Mantém >=3.15 para compatibilidade de CI no GitHub Actions até
+# setup-python@v5 publicar imagem oficial 3.15.
+requires-python = ">=3.15"
 keywords = ["security", "devsecops", "anomaly-detection", "fastapi", "mlops"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Security",
 ]
 
@@ -51,9 +51,9 @@ Issues     = "https://github.com/Santosdevbjj/geo-explorer-com-ibm-bob/issues"
 
 # ── Ruff ────────────────────────────────────────────────────────────────────
 [tool.ruff]
-# py312 é a versão mínima garantida; py314 não tem target ainda no Ruff 0.4.x.
-# Atualizar para py314 quando Ruff publicar suporte oficial.
-target-version = "py312"
+# py315 é a versão mínima garantida; py315 não tem target ainda no Ruff 0.4.x.
+# Atualizar para py315 quando Ruff publicar suporte oficial.
+target-version = "py315"
 line-length = 88
 src = ["src", "api", "scripts", "tests", "mcp"]
 
@@ -68,7 +68,7 @@ known-first-party = ["sentinel"]
 [tool.mypy]
 # mypy usa a versão instalada para inferência de tipos.
 # Mantido em 3.12 para CI; localmente mypy detecta 3.14 se disponível.
-python_version = "3.12"
+python_version = "3.15"
 strict = true
 ignore_missing_imports = true
 exclude = ["notebooks/", "docs/"]

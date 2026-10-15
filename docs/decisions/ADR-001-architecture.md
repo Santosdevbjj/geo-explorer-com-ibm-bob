@@ -12,6 +12,7 @@
 O projeto parte do desafio Geo-Explorer com IBM Bob e precisa evoluir para um produto analítico de segurança com cinco capacidades: ingestão de dados, detecção, priorização, avaliação de modelos e engenharia de software.
 
 A decisão de arquitetura deve equilibrar:
+
 - **Clareza educacional** — o código deve ser legível e auditável por recrutadores e pares
 - **Separação de responsabilidades** — pipeline de dados independente da API e da interface
 - **Testabilidade** — cada módulo isolável para testes unitários sem dependências externas
@@ -46,34 +47,36 @@ frontend/              ← Next.js (interface desacoplada — consome a API)
 
 ## Alternativas Consideradas
 
-| Alternativa | Por que foi rejeitada |
-|---|---|
-| Monolito Flask com tudo em um arquivo | Dificulta testes unitários e leitura do pipeline |
-| Jupyter Notebook como produto principal | Não é deployável; dificulta CI e revisão de código |
-| Microserviços desde o início | Prematura para v0.1; overhead de infra desnecessário |
-| Django | Overhead de ORM e admin; inadequado para API analítica pura |
+| Alternativa                             | Por que foi rejeitada                                       |
+| --------------------------------------- | ----------------------------------------------------------- |
+| Monolito Flask com tudo em um arquivo   | Dificulta testes unitários e leitura do pipeline            |
+| Jupyter Notebook como produto principal | Não é deployável; dificulta CI e revisão de código          |
+| Microserviços desde o início            | Prematura para v0.1; overhead de infra desnecessário        |
+| Django                                  | Overhead de ORM e admin; inadequado para API analítica pura |
 
 ---
 
 ## Consequências
 
 **Positivas:**
+
 - `src/sentinel/` pode ser instalado como pacote (`pip install -e .`) e importado em notebooks e scripts
 - A API pode ser trocada por outro framework sem alterar a lógica de detecção
 - Testes unitários rodam sem levantar servidor HTTP
 - Facilita separação de responsabilidades no CI (lint por módulo, cobertura por pacote)
 
 **Negativas / trade-offs:**
+
 - Mais boilerplate inicial comparado a um único arquivo
 - Desenvolvedor precisa entender a separação `src/sentinel/` vs `api/` vs `scripts/`
 
 ---
 
-## Decisão sobre Python 3.14
+## Decisão sobre Python 3.15
 
-O alvo de longo prazo é **Python 3.14.8** (estável previsto para outubro de 2026). A versão fixada em `.python-version` é **3.12** porque as dependências críticas (`pandas`, `scikit-learn`, `numpy`) ainda não publicaram wheels estáveis para 3.14.x.
+O alvo de longo prazo é **Python 3.15.0** (estável previsto para outubro de 2026). A versão fixada em `.python-version` é **3.12** porque as dependências críticas (`pandas`, `scikit-learn`, `numpy`) ainda não publicaram wheels estáveis para 3.15.x.
 
-**Critério de migração:** quando `pandas >= 2.x`, `scikit-learn >= 1.5.x` e `numpy >= 2.x` publicarem wheels para Python 3.14 no PyPI sem sinalizadores `pre-release`, abriremos um PR de atualização com ADR de migração separado.
+**Critério de migração:** quando `pandas >= 2.x`, `scikit-learn >= 1.5.x` e `numpy >= 2.x` publicarem wheels para Python 3.15 no PyPI sem sinalizadores `pre-release`, abriremos um PR de atualização com ADR de migração separado.
 
 ---
 
@@ -82,4 +85,4 @@ O alvo de longo prazo é **Python 3.14.8** (estável previsto para outubro de 20
 - [FastAPI — Design Principles](https://fastapi.tiangolo.com/features/)
 - [Pydantic v2 — Performance and Strict Mode](https://docs.pydantic.dev/latest/)
 - [Python Packaging — src layout](https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/)
-- [Python 3.14 Release Schedule — PEP 745](https://peps.python.org/pep-0745/)
+- [Python 3.15 Release Schedule — PEP 745](https://peps.python.org/pep-0745/)
